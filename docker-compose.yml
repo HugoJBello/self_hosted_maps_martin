@@ -1,0 +1,19 @@
+services:
+  martin:
+    image: ghcr.io/maplibre/martin:latest
+    container_name: martin
+    restart: unless-stopped
+    command: ["/data"]
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "3000:3000"
+
+  viewer:
+    image: nginx:alpine
+    container_name: map-viewer
+    restart: unless-stopped
+    volumes:
+      - ./viewer:/usr/share/nginx/html:ro
+    ports:
+      - "8081:80"

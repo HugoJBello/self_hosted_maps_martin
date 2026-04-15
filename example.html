@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa local con puntos y polígonos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
+    rel="stylesheet"
+  />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      padding: 10px 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      max-width: 420px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .panel code {
+      word-break: break-word;
+      display: block;
+      margin-top: 4px;
+      background: #f5f5f5;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+
+    .error {
+      color: #b00020;
+      margin-top: 8px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <strong>Ejemplo local</strong><br>
+    Parámetros soportados:
+    <code>?points=41.65,-4.72;41.66,-4.70;41.64,-4.69</code>
+    <code>?polygon=41.65,-4.72;41.68,-4.70;41.66,-4.65;41.63,-4.67</code>
+    <div id="status"></div>
+    <div id="error" class="error"></div>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+
+    function setStatus(msg) {
+      statusEl.textContent = msg || "";
+    }
+
+    function setError(msg) {
+      errorEl.textContent = msg || "";
+    }
+
+    function parseLatLonList(raw) {
+      if (!raw) return [];
+      return raw
+        .split(";")
+        .map(pair => pair.trim())
+        .filter(Boolean)
+        .map(pair => {
+          const [latStr, lonStr] = pair.split(",");
+          const lat = Number(latStr);
+          const lon = Number(lonStr);
+
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Coordenada inválida: "${pair}". Usa formato lat,lon`);
+          }
+          if (lat < -90 || lat > 90) {
+            throw new Error(`Latitud fuera de rango en "${pair}"`);
+          }
+          if (lon < -180 || lon > 180) {
+            throw new Error(`Longitud fuera de rango en "${pair}"`);
+          }
+
+          // GeoJSON y MapLibre usan [lon, lat]
+          return [lon, lat];
+        });
+    }
+
+    function ensureClosedRing(coords) {
+      if (coords.length === 0) return coords;
+      const first = coords[0];
+      const last = coords[coords.length - 1];
+      if (first[0] === last[0] && first[1] === last[1]) {
+        return coords;
+      }
+      return [...coords, first];
+    }
+
+    function boundsFromCoordinates(allCoords) {
+      if (!allCoords.length) return null;
+      const bounds = new maplibregl.LngLatBounds(allCoords[0], allCoords[0]);
+      for (const c of allCoords) bounds.extend(c);
+      return bounds;
+    }
+
+    async function main() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const pointCoords = parseLatLonList(params.get("points"));
+        const polygonCoords = parseLatLonList(params.get("polygon"));
+
+        // Cambia "espana" por el nombre real de tu source en Martin si hace falta.
+        // Esto intenta usar teselas raster XYZ.
+        const rasterTilesUrl = "http://localhost:3000/espana/{z}/{x}/{y}";
+
+        const map = new maplibregl.Map({
+          container: "map",
+          style: {
+            version: 8,
+            sources: {
+              "local-raster": {
+                type: "raster",
+                tiles: [rasterTilesUrl],
+                tileSize: 256,
+                attribution: "Mapa local"
+              }
+            },
+            layers: [
+              {
+                id: "local-raster-layer",
+                type: "raster",
+                source: "local-raster"
+              }
+            ]
+          },
+          center: [-4.72, 41.65],
+          zoom: 7
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+        map.on("load", () => {
+          const allCoords = [];
+
+          if (pointCoords.length > 0) {
+            map.addSource("points-source", {
+              type: "geojson",
+              data: {
+                type: "FeatureCollection",
+                features: pointCoords.map((coord, idx) => ({
+                  type: "Feature",
+                  properties: { index: idx + 1 },
+                  geometry: {
+                    type: "Point",
+                    coordinates: coord
+                  }
+                }))
+              }
+            });
+
+            map.addLayer({
+              id: "points-layer",
+              type: "circle",
+              source: "points-source",
+              paint: {
+                "circle-radius": 6,
+                "circle-color": "#d32f2f",
+                "circle-stroke-width": 1.5,
+                "circle-stroke-color": "#ffffff"
+              }
+            });
+
+            allCoords.push(...pointCoords);
+          }
+
+          if (polygonCoords.length >= 3) {
+            const closed = ensureClosedRing(polygonCoords);
+
+            map.addSource("polygon-source", {
+              type: "geojson",
+              data: {
+                type: "Feature",
+                properties: {},
+                geometry: {
+                  type: "Polygon",
+                  coordinates: [closed]
+                }
+              }
+            });
+
+            map.addLayer({
+              id: "polygon-fill-layer",
+              type: "fill",
+              source: "polygon-source",
+              paint: {
+                "fill-color": "#1976d2",
+                "fill-opacity": 0.25
+              }
+            });
+
+            map.addLayer({
+              id: "polygon-outline-layer",
+              type: "line",
+              source: "polygon-source",
+              paint: {
+                "line-color": "#1976d2",
+                "line-width": 2
+              }
+            });
+
+            allCoords.push(...closed);
+          }
+
+          if (!pointCoords.length && !polygonCoords.length) {
+            setStatus("Sin geometría en la URL. Mostrando solo el mapa base.");
+          } else {
+            setStatus(
+              `Puntos: ${pointCoords.length} · Vértices polígono: ${polygonCoords.length}`
+            );
+          }
+
+          const bounds = boundsFromCoordinates(allCoords);
+          if (bounds) {
+            map.fitBounds(bounds, {
+              padding: 40,
+              maxZoom: 15,
+              duration: 0
+            });
+          }
+        });
+
+        map.on("error", (e) => {
+          console.error(e);
+        });
+      } catch (err) {
+        console.error(err);
+        setError(err.message || String(err));
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
