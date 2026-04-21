@@ -29,3 +29,11 @@ docker run --rm \
   --maxzoom=16
 
 ```
+
+
+examples
+
+http://localhost:48081/?points=41.65,-4.72;41.66,-4.70;41.64,-4.69
+
+http://localhost:48081/?route=41.65,-4.72;41.66,-4.70;41.67,-4.68;41.69,-4.66
+

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa local mínimo</title>
+  <title>Mapa local con etiquetas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
@@ -12,6 +12,7 @@
       width: 100%;
       height: 100%;
     }
+
     .panel {
       position: absolute;
       top: 10px;
@@ -21,24 +22,20 @@
       border-radius: 8px;
       padding: 10px 12px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-      max-width: 520px;
+      max-width: 560px;
       font: 14px sans-serif;
     }
+
     .error {
       color: #b00020;
       white-space: pre-wrap;
       margin-top: 6px;
     }
-    code {
-      background: #f3f3f3;
-      padding: 1px 4px;
-      border-radius: 4px;
-    }
   </style>
 </head>
 <body>
   <div class="panel">
-    <div><strong>Mapa local mínimo</strong></div>
+    <div><strong>Mapa local</strong></div>
     <div id="status">Cargando…</div>
     <div id="error" class="error"></div>
   </div>
@@ -49,50 +46,87 @@
     const statusEl = document.getElementById('status');
     const errorEl = document.getElementById('error');
 
-    function setStatus(msg) { statusEl.textContent = msg || ''; }
-    function setError(msg) { errorEl.textContent = msg || ''; }
+    function setStatus(msg) {
+      statusEl.textContent = msg || '';
+    }
+
+    function setError(msg) {
+      errorEl.textContent = msg || '';
+    }
 
     function parseLatLonList(raw) {
       if (!raw) return [];
-      return raw.split(';').map(s => s.trim()).filter(Boolean).map(pair => {
-        const [latStr, lonStr] = pair.split(',');
-        const lat = Number(latStr);
-        const lon = Number(lonStr);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-          throw new Error(`Coordenada inválida: ${pair}`);
-        }
-        return [lon, lat];
-      });
+
+      return raw
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(pair => {
+          const [latStr, lonStr] = pair.split(',');
+          const lat = Number(latStr);
+          const lon = Number(lonStr);
+
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Coordenada inválida: ${pair}`);
+          }
+
+          return [lon, lat];
+        });
     }
 
     function ensureClosedRing(coords) {
       if (!coords.length) return coords;
-      const a = coords[0];
-      const b = coords[coords.length - 1];
-      if (a[0] === b[0] && a[1] === b[1]) return coords;
-      return [...coords, a];
+      const first = coords[0];
+      const last = coords[coords.length - 1];
+      if (first[0] === last[0] && first[1] === last[1]) return coords;
+      return [...coords, first];
+    }
+
+    function fitToCoords(map, coords, maxZoom = 13) {
+      if (!coords.length) return;
+      const bounds = new maplibregl.LngLatBounds(coords[0], coords[0]);
+      for (const c of coords) bounds.extend(c);
+      map.fitBounds(bounds, {
+        padding: 30,
+        maxZoom,
+        duration: 0
+      });
     }
 
     async function main() {
       try {
-        const r = await fetch('http://localhost:43000/map?ts=' + Date.now(), { cache: 'no-store' });
-        if (!r.ok) throw new Error(`No se pudo leer TileJSON: ${r.status}`);
+        const params = new URLSearchParams(window.location.search);
+        const sourceId = params.get('source') || 'map';
+
+        const MARTIN_BASE =
+          window.location.hostname === 'localhost'
+            ? 'http://localhost:43000'
+            : '/mapas/tiles';
+
+        const tilejsonUrl = `${MARTIN_BASE}/${sourceId}?ts=${Date.now()}`;
+        const r = await fetch(tilejsonUrl, { cache: 'no-store' });
+
+        if (!r.ok) {
+          throw new Error(`No se pudo leer TileJSON de "${sourceId}": ${r.status}`);
+        }
+
         const tilejson = await r.json();
 
         const bounds = tilejson.bounds || [-180, -85, 180, 85];
         const minZoom = tilejson.minzoom ?? 0;
         const maxZoom = tilejson.maxzoom ?? 14;
 
-        setStatus(`Fuente ${tilejson.name || 'map'} · zoom ${minZoom}-${maxZoom} · bounds ${bounds.join(', ')}`);
+        setStatus(`Fuente ${sourceId} · zoom ${minZoom}-${maxZoom}`);
 
         const map = new maplibregl.Map({
           container: 'map',
           style: {
             version: 8,
+            glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
             sources: {
               osm: {
                 type: 'vector',
-                url: 'http://localhost:43000/map'
+                url: `${MARTIN_BASE}/${sourceId}`
               }
             },
             layers: [
@@ -172,35 +206,96 @@
                   'fill-color': '#d8d0c3',
                   'fill-opacity': 0.9
                 }
+              },
+
+              {
+                id: 'place-labels',
+                type: 'symbol',
+                source: 'osm',
+                'source-layer': 'place',
+                layout: {
+                  'text-field': ['coalesce', ['get', 'name:es'], ['get', 'name']],
+                  'text-font': ['Noto Sans Regular'],
+                  'text-size': [
+                    'interpolate', ['linear'], ['zoom'],
+                    4, 10,
+                    8, 12,
+                    12, 15
+                  ]
+                },
+                paint: {
+                  'text-color': '#222',
+                  'text-halo-color': '#ffffff',
+                  'text-halo-width': 1.2
+                }
+              },
+              {
+                id: 'road-labels',
+                type: 'symbol',
+                source: 'osm',
+                'source-layer': 'transportation_name',
+                minzoom: 10,
+                layout: {
+                  'symbol-placement': 'line',
+                  'text-field': ['coalesce', ['get', 'name:es'], ['get', 'name']],
+                  'text-font': ['Noto Sans Regular'],
+                  'text-size': [
+                    'interpolate', ['linear'], ['zoom'],
+                    10, 10,
+                    14, 12
+                  ]
+                },
+                paint: {
+                  'text-color': '#5a4a3a',
+                  'text-halo-color': '#ffffff',
+                  'text-halo-width': 1
+                }
+              },
+              {
+                id: 'water-labels',
+                type: 'symbol',
+                source: 'osm',
+                'source-layer': 'water_name',
+                minzoom: 9,
+                layout: {
+                  'text-field': ['coalesce', ['get', 'name:es'], ['get', 'name']],
+                  'text-font': ['Noto Sans Regular'],
+                  'text-size': 11
+                },
+                paint: {
+                  'text-color': '#2d6f9f',
+                  'text-halo-color': '#ffffff',
+                  'text-halo-width': 1
+                }
               }
             ]
           },
           center: [-4.423285, 41.6606935],
           zoom: 7,
-          minZoom: 5,
+          minZoom: Math.max(minZoom, 4),
           maxZoom: maxZoom,
           renderWorldCopies: false
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
+        const points = parseLatLonList(params.get('points'));
+        const polygon = parseLatLonList(params.get('polygon'));
+        const route = parseLatLonList(params.get('route'));
+
         map.on('load', () => {
-          const regionBounds = new maplibregl.LngLatBounds(
+          const sourceBounds = new maplibregl.LngLatBounds(
             [bounds[0], bounds[1]],
             [bounds[2], bounds[3]]
           );
 
-          map.fitBounds(regionBounds, {
+          map.fitBounds(sourceBounds, {
             padding: 20,
             maxZoom: 9,
             duration: 0
           });
 
-          map.setMaxBounds(regionBounds);
-
-          const params = new URLSearchParams(window.location.search);
-          const points = parseLatLonList(params.get('points'));
-          const polygon = parseLatLonList(params.get('polygon'));
+          map.setMaxBounds(sourceBounds);
 
           const allCoords = [];
 
@@ -212,7 +307,10 @@
                 features: points.map((coord, i) => ({
                   type: 'Feature',
                   properties: { index: i + 1 },
-                  geometry: { type: 'Point', coordinates: coord }
+                  geometry: {
+                    type: 'Point',
+                    coordinates: coord
+                  }
                 }))
               }
             });
@@ -230,6 +328,33 @@
             });
 
             allCoords.push(...points);
+          }
+
+          if (route.length >= 2) {
+            map.addSource('route-src', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: route
+                },
+                properties: {}
+              }
+            });
+
+            map.addLayer({
+              id: 'route-line',
+              type: 'line',
+              source: 'route-src',
+              paint: {
+                'line-color': '#e53935',
+                'line-width': 4,
+                'line-opacity': 0.9
+              }
+            });
+
+            allCoords.push(...route);
           }
 
           if (polygon.length >= 3) {
@@ -271,23 +396,15 @@
           }
 
           if (allCoords.length) {
-            const geomBounds = new maplibregl.LngLatBounds(allCoords[0], allCoords[0]);
-            for (const c of allCoords) geomBounds.extend(c);
-            map.fitBounds(geomBounds, {
-              padding: 30,
-              maxZoom: 13,
-              duration: 0
-            });
+            fitToCoords(map, allCoords, 13);
           }
         });
 
         map.on('error', (e) => {
           console.error('MapLibre error:', e);
-          setError(JSON.stringify({
-            message: e?.error?.message || 'Error desconocido',
-            type: e?.type || null
-          }, null, 2));
+          setError(e?.error?.message || 'Error desconocido');
         });
+
       } catch (err) {
         console.error(err);
         setError(err.message || String(err));
