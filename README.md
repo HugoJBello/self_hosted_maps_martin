@@ -1,2 +1,0 @@
-# self_hosted_maps_martin
-self_hosted_maps_martin

@@ -3,7 +3,7 @@ services:
     image: ghcr.io/maplibre/martin:latest
     container_name: martin
     restart: unless-stopped
-    command: ["/data"]
+    command: ["--webui", "enable-for-all", "/data"]
     volumes:
       - ./data:/data:ro
     ports:

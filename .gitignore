@@ -6,6 +6,24 @@ __pycache__/
 # C extensions
 *.so
 
+# --- Map data ---
+data/*.pmtiles
+data/*.mbtiles
+data/*.osm.pbf
+data/*.osm
+
+# --- Planetiler temp / cache ---
+data/tmp/
+data/sources/
+data/*.tsv.gz
+
+# --- Output (si usas carpeta aparte) ---
+output/
+
+# --- Optional: logs ---
+*.log
+
+
 # Distribution / packaging
 .Python
 build/

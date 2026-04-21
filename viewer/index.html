@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa local mínimo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      padding: 10px 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      max-width: 520px;
+      font: 14px sans-serif;
+    }
+    .error {
+      color: #b00020;
+      white-space: pre-wrap;
+      margin-top: 6px;
+    }
+    code {
+      background: #f3f3f3;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div><strong>Mapa local mínimo</strong></div>
+    <div id="status">Cargando…</div>
+    <div id="error" class="error"></div>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+  <script>
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+
+    function setStatus(msg) { statusEl.textContent = msg || ''; }
+    function setError(msg) { errorEl.textContent = msg || ''; }
+
+    function parseLatLonList(raw) {
+      if (!raw) return [];
+      return raw.split(';').map(s => s.trim()).filter(Boolean).map(pair => {
+        const [latStr, lonStr] = pair.split(',');
+        const lat = Number(latStr);
+        const lon = Number(lonStr);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          throw new Error(`Coordenada inválida: ${pair}`);
+        }
+        return [lon, lat];
+      });
+    }
+
+    function ensureClosedRing(coords) {
+      if (!coords.length) return coords;
+      const a = coords[0];
+      const b = coords[coords.length - 1];
+      if (a[0] === b[0] && a[1] === b[1]) return coords;
+      return [...coords, a];
+    }
+
+    async function main() {
+      try {
+        const r = await fetch('http://localhost:3000/map?ts=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) throw new Error(`No se pudo leer TileJSON: ${r.status}`);
+        const tilejson = await r.json();
+
+        const bounds = tilejson.bounds || [-180, -85, 180, 85];
+        const minZoom = tilejson.minzoom ?? 0;
+        const maxZoom = tilejson.maxzoom ?? 14;
+
+        setStatus(`Fuente ${tilejson.name || 'map'} · zoom ${minZoom}-${maxZoom} · bounds ${bounds.join(', ')}`);
+
+        const map = new maplibregl.Map({
+          container: 'map',
+          style: {
+            version: 8,
+            sources: {
+              osm: {
+                type: 'vector',
+                url: 'http://localhost:3000/map'
+              }
+            },
+            layers: [
+              {
+                id: 'background',
+                type: 'background',
+                paint: { 'background-color': '#eef3f7' }
+              },
+              {
+                id: 'landcover',
+                type: 'fill',
+                source: 'osm',
+                'source-layer': 'landcover',
+                paint: { 'fill-color': '#dfe8d6' }
+              },
+              {
+                id: 'landuse',
+                type: 'fill',
+                source: 'osm',
+                'source-layer': 'landuse',
+                paint: { 'fill-color': '#ece8d5' }
+              },
+              {
+                id: 'park',
+                type: 'fill',
+                source: 'osm',
+                'source-layer': 'park',
+                paint: { 'fill-color': '#cfe6c9' }
+              },
+              {
+                id: 'water',
+                type: 'fill',
+                source: 'osm',
+                'source-layer': 'water',
+                paint: { 'fill-color': '#a9d3f5' }
+              },
+              {
+                id: 'waterway',
+                type: 'line',
+                source: 'osm',
+                'source-layer': 'waterway',
+                paint: {
+                  'line-color': '#7fb7e6',
+                  'line-width': [
+                    'interpolate', ['linear'], ['zoom'],
+                    4, 0.4,
+                    8, 0.8,
+                    12, 1.4,
+                    14, 2.0
+                  ]
+                }
+              },
+              {
+                id: 'transportation',
+                type: 'line',
+                source: 'osm',
+                'source-layer': 'transportation',
+                paint: {
+                  'line-color': '#c7834c',
+                  'line-width': [
+                    'interpolate', ['linear'], ['zoom'],
+                    5, 0.5,
+                    8, 1.0,
+                    10, 1.8,
+                    12, 2.8,
+                    14, 4.0
+                  ]
+                }
+              },
+              {
+                id: 'building',
+                type: 'fill',
+                source: 'osm',
+                'source-layer': 'building',
+                minzoom: 13,
+                paint: {
+                  'fill-color': '#d8d0c3',
+                  'fill-opacity': 0.9
+                }
+              }
+            ]
+          },
+          center: [-4.423285, 41.6606935],
+          zoom: 7,
+          minZoom: 5,
+          maxZoom: maxZoom,
+          renderWorldCopies: false
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        map.on('load', () => {
+          const regionBounds = new maplibregl.LngLatBounds(
+            [bounds[0], bounds[1]],
+            [bounds[2], bounds[3]]
+          );
+
+          map.fitBounds(regionBounds, {
+            padding: 20,
+            maxZoom: 9,
+            duration: 0
+          });
+
+          map.setMaxBounds(regionBounds);
+
+          const params = new URLSearchParams(window.location.search);
+          const points = parseLatLonList(params.get('points'));
+          const polygon = parseLatLonList(params.get('polygon'));
+
+          const allCoords = [];
+
+          if (points.length) {
+            map.addSource('points-src', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: points.map((coord, i) => ({
+                  type: 'Feature',
+                  properties: { index: i + 1 },
+                  geometry: { type: 'Point', coordinates: coord }
+                }))
+              }
+            });
+
+            map.addLayer({
+              id: 'points-layer',
+              type: 'circle',
+              source: 'points-src',
+              paint: {
+                'circle-radius': 6,
+                'circle-color': '#d32f2f',
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 1.5
+              }
+            });
+
+            allCoords.push(...points);
+          }
+
+          if (polygon.length >= 3) {
+            const closed = ensureClosedRing(polygon);
+
+            map.addSource('poly-src', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                geometry: {
+                  type: 'Polygon',
+                  coordinates: [closed]
+                },
+                properties: {}
+              }
+            });
+
+            map.addLayer({
+              id: 'poly-fill',
+              type: 'fill',
+              source: 'poly-src',
+              paint: {
+                'fill-color': '#1976d2',
+                'fill-opacity': 0.22
+              }
+            });
+
+            map.addLayer({
+              id: 'poly-line',
+              type: 'line',
+              source: 'poly-src',
+              paint: {
+                'line-color': '#1976d2',
+                'line-width': 2
+              }
+            });
+
+            allCoords.push(...closed);
+          }
+
+          if (allCoords.length) {
+            const geomBounds = new maplibregl.LngLatBounds(allCoords[0], allCoords[0]);
+            for (const c of allCoords) geomBounds.extend(c);
+            map.fitBounds(geomBounds, {
+              padding: 30,
+              maxZoom: 13,
+              duration: 0
+            });
+          }
+        });
+
+        map.on('error', (e) => {
+          console.error('MapLibre error:', e);
+          setError(JSON.stringify({
+            message: e?.error?.message || 'Error desconocido',
+            type: e?.type || null
+          }, null, 2));
+        });
+      } catch (err) {
+        console.error(err);
+        setError(err.message || String(err));
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
