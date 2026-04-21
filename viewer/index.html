@@ -175,6 +175,9 @@
 
     function normalizeMarkers(value, name = 'markers') {
       if (!value) return [];
+      if (typeof value === 'string') {
+        return value;
+      }
       if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
         return value.features
           .filter(feature => feature?.geometry?.type === 'Point')
@@ -202,6 +205,56 @@
         label: item.label ?? item.text ?? item.name ?? '',
         icon: item.icon ?? ''
       }));
+    }
+
+    function markersToFeatureCollection(markers) {
+      return {
+        type: 'FeatureCollection',
+        features: markers.map((marker, i) => ({
+          type: 'Feature',
+          properties: {
+            index: i + 1,
+            label: marker.label || '',
+            icon: marker.icon || ''
+          },
+          geometry: {
+            type: 'Point',
+            coordinates: marker.coord
+          }
+        }))
+      };
+    }
+
+    function normalizeFeatureCollection(value, name) {
+      if (!value) return null;
+      if (typeof value === 'string') return value;
+
+      if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
+        return {
+          type: 'FeatureCollection',
+          features: value.features.filter((feature, i) => {
+            if (feature?.geometry?.type !== 'Point') return false;
+            parseLatLon(feature.geometry.coordinates, `${name}.features[${i}]`);
+            return true;
+          })
+        };
+      }
+
+      return markersToFeatureCollection(normalizeMarkers(value, name));
+    }
+
+    function normalizeBounds(value, name = 'bounds') {
+      if (!value) return null;
+      if (!Array.isArray(value) || value.length !== 4) {
+        throw new Error(`"${name}" debe ser [oeste, sur, este, norte]`);
+      }
+
+      const bounds = value.map(Number);
+      if (!bounds.every(Number.isFinite)) {
+        throw new Error(`"${name}" contiene valores inválidos`);
+      }
+
+      return bounds;
     }
 
     function markersFromPoints(points, labels, icons) {
@@ -271,10 +324,11 @@
 
       if (inline) {
         if (overlay.markers) {
-          overlay.markers = [
-            ...normalizeMarkers(overlay.markers, 'overlay.markers'),
-            ...normalizeMarkers(inline, 'markers')
-          ];
+          const current = normalizeMarkers(overlay.markers, 'overlay.markers');
+          if (typeof current === 'string') {
+            throw new Error('No se puede combinar "overlay.markers" por URL con "markers" inline');
+          }
+          overlay.markers = [...current, ...normalizeMarkers(inline, 'markers')];
         } else {
           overlay.markers = inline;
         }
@@ -299,6 +353,173 @@
         padding: 30,
         maxZoom,
         duration: 0
+      });
+    }
+
+    function fitToBoundsArray(map, bounds, maxZoom = 13) {
+      if (!bounds) return;
+      map.fitBounds(
+        [
+          [bounds[0], bounds[1]],
+          [bounds[2], bounds[3]]
+        ],
+        {
+          padding: 30,
+          maxZoom,
+          duration: 0
+        }
+      );
+    }
+
+    function getFeatureLabel(feature) {
+      const props = feature?.properties || {};
+      return props.label || props.text || props.name || '';
+    }
+
+    function getFeatureCollectionCoords(value) {
+      if (!value || typeof value === 'string' || value.type !== 'FeatureCollection') {
+        return [];
+      }
+
+      return value.features
+        .filter(feature => feature?.geometry?.type === 'Point')
+        .map(feature => feature.geometry.coordinates);
+    }
+
+    function addDomMarkers(map, markers) {
+      for (const marker of markers) {
+        const mapMarker = new maplibregl.Marker({
+          element: createMarkerElement(marker.icon),
+          anchor: 'center'
+        }).setLngLat(marker.coord);
+
+        if (marker.label) {
+          mapMarker.setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(escapeHtml(marker.label)));
+        }
+
+        mapMarker.addTo(map);
+      }
+    }
+
+    function addMarkerLayers(map, markerData, options = {}) {
+      const cluster = options.cluster !== false;
+
+      map.addSource('markers-src', {
+        type: 'geojson',
+        data: markerData,
+        cluster,
+        clusterMaxZoom: Number(options.clusterMaxZoom ?? 14),
+        clusterRadius: Number(options.clusterRadius ?? 50)
+      });
+
+      if (cluster) {
+        map.addLayer({
+          id: 'marker-clusters',
+          type: 'circle',
+          source: 'markers-src',
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#2e7d32',
+              100,
+              '#f9a825',
+              1000,
+              '#c62828'
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              16,
+              100,
+              22,
+              1000,
+              30
+            ],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+          }
+        });
+
+        map.addLayer({
+          id: 'marker-cluster-count',
+          type: 'symbol',
+          source: 'markers-src',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 12
+          },
+          paint: {
+            'text-color': '#ffffff'
+          }
+        });
+
+        map.on('click', 'marker-clusters', async (e) => {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['marker-clusters'] });
+          const clusterId = features[0]?.properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          try {
+            const zoom = await map.getSource('markers-src').getClusterExpansionZoom(clusterId);
+            map.easeTo({
+              center: features[0].geometry.coordinates,
+              zoom
+            });
+          } catch (err) {
+            console.error('No se pudo expandir el cluster:', err);
+          }
+        });
+
+        map.on('mouseenter', 'marker-clusters', () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'marker-clusters', () => {
+          map.getCanvas().style.cursor = '';
+        });
+      }
+
+      map.addLayer({
+        id: 'markers-layer',
+        type: 'circle',
+        source: 'markers-src',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5,
+            4,
+            12,
+            7,
+            16,
+            10
+          ],
+          'circle-color': '#d32f2f',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1.5
+        }
+      });
+
+      map.on('click', 'markers-layer', (e) => {
+        const feature = e.features?.[0];
+        const label = getFeatureLabel(feature);
+        if (!label) return;
+
+        new maplibregl.Popup({ offset: 12 })
+          .setLngLat(feature.geometry.coordinates)
+          .setHTML(escapeHtml(label))
+          .addTo(map);
+      });
+
+      map.on('mouseenter', 'markers-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'markers-layer', () => {
+        map.getCanvas().style.cursor = '';
       });
     }
 
@@ -558,10 +779,42 @@
         ];
         const labels = parseListParam(params.get('labels'));
         const icons = parseListParam(params.get('icons'));
-        const markers = [
-          ...(labels.length || icons.length ? markersFromPoints(points, labels, icons) : []),
-          ...normalizeMarkers(overlay.markers, 'overlay.markers')
-        ];
+        const pointMarkers = labels.length || icons.length ? markersFromPoints(points, labels, icons) : [];
+        const markerList = [];
+        let markerData = null;
+
+        if (typeof overlay.markers === 'string') {
+          if (pointMarkers.length) {
+            throw new Error('No se puede combinar "overlay.markers" por URL con "points" etiquetados');
+          }
+          markerData = overlay.markers;
+        } else if (overlay.markers?.type === 'FeatureCollection') {
+          const overlayFeatureCollection = normalizeFeatureCollection(overlay.markers, 'overlay.markers');
+          if (pointMarkers.length) {
+            markerList.push(...pointMarkers);
+            markerData = {
+              ...overlayFeatureCollection,
+              features: [
+                ...overlayFeatureCollection.features,
+                ...markersToFeatureCollection(pointMarkers).features
+              ]
+            };
+          } else {
+            markerData = overlayFeatureCollection;
+          }
+        } else {
+          markerList.push(
+            ...pointMarkers,
+            ...normalizeMarkers(overlay.markers, 'overlay.markers')
+          );
+          markerData = markerList.length ? markersToFeatureCollection(markerList) : null;
+        }
+
+        const markerBounds = normalizeBounds(overlay.markersBounds || overlay.bounds, 'overlay.markersBounds');
+        const markerOptions = overlay.markerOptions && typeof overlay.markerOptions === 'object'
+          ? overlay.markerOptions
+          : {};
+        const markerRenderMode = markerOptions.render || (markerList.some(marker => marker.icon) ? 'dom' : 'layer');
 
         map.on('load', () => {
           const sourceBounds = new maplibregl.LngLatBounds(
@@ -610,21 +863,16 @@
             allCoords.push(...points);
           }
 
-          if (markers.length) {
-            for (const marker of markers) {
-              const mapMarker = new maplibregl.Marker({
-                element: createMarkerElement(marker.icon),
-                anchor: 'center'
-              }).setLngLat(marker.coord);
-
-              if (marker.label) {
-                mapMarker.setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(escapeHtml(marker.label)));
-              }
-
-              mapMarker.addTo(map);
+          if (markerData) {
+            if (markerRenderMode === 'dom' && markerList.length) {
+              addDomMarkers(map, markerList);
+            } else {
+              addMarkerLayers(map, markerData, markerOptions);
             }
-
-            allCoords.push(...markers.map(marker => marker.coord));
+            allCoords.push(
+              ...markerList.map(marker => marker.coord),
+              ...getFeatureCollectionCoords(markerData)
+            );
           }
 
           if (route.length >= 2) {
@@ -694,6 +942,8 @@
 
           if (allCoords.length) {
             fitToCoords(map, allCoords, 13);
+          } else if (markerBounds) {
+            fitToBoundsArray(map, markerBounds, 13);
           }
         });
 

@@ -85,3 +85,78 @@ Formato de `overlay.json`:
 
 En JSON las coordenadas como array van en orden GeoJSON: `[lon, lat]`.
 El icono `pin` se dibuja inline y no requiere cargar una imagen. Los iconos de imagen relativos se cargan desde el visor (`/maps/archivo.svg` en despliegue). También se pueden usar URLs absolutas.
+
+Muchos puntos desde otro frontend o Django
+------------------------------------------
+
+Para muchos puntos no conviene crear un marcador HTML por cada punto. El visor usa una capa GeoJSON de MapLibre con clustering, por lo que puede consumir directamente un GeoJSON generado por Django u otro frontend/backend.
+
+URL del visor:
+
+```
+http://localhost:48081/?source=castilla_y_leon&overlay=/api/map-overlay/123/
+```
+
+Respuesta recomendada de `/api/map-overlay/123/`:
+
+```json
+{
+  "markers": "/api/map-points/123.geojson",
+  "markersBounds": [-4.90, 41.50, -4.50, 41.80],
+  "markerOptions": {
+    "cluster": true,
+    "clusterMaxZoom": 14,
+    "clusterRadius": 50,
+    "render": "layer"
+  }
+}
+```
+
+Respuesta de `/api/map-points/123.geojson`:
+
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-4.72, 41.65]
+      },
+      "properties": {
+        "label": "Valladolid"
+      }
+    }
+  ]
+}
+```
+
+También se puede poner el `FeatureCollection` directamente dentro de `markers`, pero para datasets grandes es mejor usar una URL. Si esa URL está en otro dominio, el backend debe permitir CORS. `markersBounds` permite que el visor centre el mapa sin tener que calcular bounds en el navegador para un GeoJSON remoto.
+
+`markerOptions.render` puede ser `"layer"` para muchos puntos o `"dom"` para pocos marcadores con iconos HTML personalizados. Si no se indica, los puntos masivos usan capa y los iconos inline mantienen el comportamiento anterior.
+
+Ejemplo mínimo en Django:
+
+```python
+from django.http import JsonResponse
+
+
+def map_overlay(request, dataset_id):
+    return JsonResponse({
+        "markers": f"/api/map-points/{dataset_id}.geojson",
+        "markersBounds": [-4.90, 41.50, -4.50, 41.80],
+        "markerOptions": {"cluster": True},
+    })
+
+
+def map_points(request, dataset_id):
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [-4.72, 41.65]},
+            "properties": {"label": "Valladolid"},
+        }
+    ]
+    return JsonResponse({"type": "FeatureCollection", "features": features})
+```
