@@ -74,6 +74,23 @@
       height: 100%;
       display: block;
     }
+
+    .marker-popup {
+      display: grid;
+      gap: 6px;
+      max-width: 280px;
+      overflow-wrap: anywhere;
+      font: 13px/1.35 sans-serif;
+    }
+
+    .marker-popup-label {
+      color: #1f2933;
+    }
+
+    .marker-popup a {
+      color: #0b5cad;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -178,21 +195,29 @@
       if (typeof value === 'string') {
         return value;
       }
+      const markerProperties = item => ({
+        label: item?.label ?? item?.text ?? item?.name ?? '',
+        icon: item?.icon ?? '',
+        html: item?.html ?? '',
+        popup: item?.popup ?? '',
+        description: item?.description ?? '',
+        url: item?.url ?? '',
+        href: item?.href ?? ''
+      });
+
       if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
         return value.features
           .filter(feature => feature?.geometry?.type === 'Point')
           .map((feature, i) => ({
             coord: parseLatLon(feature.geometry.coordinates, `${name}.features[${i}]`),
-            label: feature.properties?.label ?? feature.properties?.text ?? feature.properties?.name ?? '',
-            icon: feature.properties?.icon ?? ''
+            ...markerProperties(feature.properties)
           }));
       }
 
       if (value && typeof value === 'object' && !Array.isArray(value)) {
         return [{
           coord: parseLatLon(value, name),
-          label: value.label ?? value.text ?? value.name ?? '',
-          icon: value.icon ?? ''
+          ...markerProperties(value)
         }];
       }
 
@@ -202,8 +227,7 @@
 
       return value.map((item, i) => ({
         coord: parseLatLon(item, `${name}[${i}]`),
-        label: item.label ?? item.text ?? item.name ?? '',
-        icon: item.icon ?? ''
+        ...markerProperties(item)
       }));
     }
 
@@ -215,7 +239,12 @@
           properties: {
             index: i + 1,
             label: marker.label || '',
-            icon: marker.icon || ''
+            icon: marker.icon || '',
+            html: marker.html || '',
+            popup: marker.popup || '',
+            description: marker.description || '',
+            url: marker.url || '',
+            href: marker.href || ''
           },
           geometry: {
             type: 'Point',
@@ -300,15 +329,6 @@
       return el;
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
     async function readOverlay(params) {
       const inline = parseJsonParam(params.get('markers'), 'markers');
       const overlayUrl = params.get('overlay');
@@ -371,9 +391,46 @@
       );
     }
 
-    function getFeatureLabel(feature) {
-      const props = feature?.properties || {};
-      return props.label || props.text || props.name || '';
+    function getPopupHtml(props) {
+      return props?.popup || props?.html || props?.description || '';
+    }
+
+    function getPopupUrl(props) {
+      return props?.url || props?.href || '';
+    }
+
+    function createPopupContent(props) {
+      const label = props?.label || props?.text || props?.name || '';
+      const html = getPopupHtml(props);
+      const url = getPopupUrl(props);
+
+      if (!label && !html && !url) return null;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'marker-popup';
+
+      if (label) {
+        const labelNode = document.createElement('div');
+        labelNode.className = 'marker-popup-label';
+        labelNode.textContent = label;
+        wrapper.appendChild(labelNode);
+      }
+
+      if (html) {
+        const htmlNode = document.createElement('div');
+        htmlNode.className = 'marker-popup-html';
+        htmlNode.innerHTML = html;
+        wrapper.appendChild(htmlNode);
+      } else if (url) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Ver mensaje';
+        wrapper.appendChild(link);
+      }
+
+      return wrapper;
     }
 
     function getFeatureCollectionCoords(value) {
@@ -393,8 +450,9 @@
           anchor: 'center'
         }).setLngLat(marker.coord);
 
-        if (marker.label) {
-          mapMarker.setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(escapeHtml(marker.label)));
+        const popupContent = createPopupContent(marker);
+        if (popupContent) {
+          mapMarker.setPopup(new maplibregl.Popup({ offset: 18 }).setDOMContent(popupContent));
         }
 
         mapMarker.addTo(map);
@@ -506,12 +564,12 @@
 
       map.on('click', 'markers-layer', (e) => {
         const feature = e.features?.[0];
-        const label = getFeatureLabel(feature);
-        if (!label) return;
+        const popupContent = createPopupContent(feature?.properties || {});
+        if (!popupContent) return;
 
         new maplibregl.Popup({ offset: 12 })
           .setLngLat(feature.geometry.coordinates)
-          .setHTML(escapeHtml(label))
+          .setDOMContent(popupContent)
           .addTo(map);
       });
 
