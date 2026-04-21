@@ -1,7 +1,11 @@
 listen_addresses: "0.0.0.0:3000"
 route_prefix: "/mapas/tiles"
+web_ui: enable-for-all
 
-# Martin leerá todos los .mbtiles y .pmtiles de /data
-# por ejemplo:
-#   /data/espana.mbtiles
-#   /data/castilla_y_leon.pmtiles
+pmtiles:
+  paths:
+    - /data
+
+mbtiles:
+  paths:
+    - /data

@@ -3,11 +3,12 @@ services:
     image: ghcr.io/maplibre/martin:latest
     container_name: martin
     restart: unless-stopped
-    command: ["--webui", "enable-for-all", "/data"]
+    command: ["--config", "/etc/martin/config.yaml"]
     volumes:
       - ./data:/data:ro
+      - ./martin/config.yaml:/etc/martin/config.yaml:ro
     ports:
-      - "43000:3000"   # ⬅️ antes 3000
+      - "43000:3000"
 
   map-viewer:
     image: nginx:alpine
@@ -16,4 +17,4 @@ services:
     volumes:
       - ./viewer:/usr/share/nginx/html:ro
     ports:
-      - "48081:80"     # ⬅️ antes 8081
+      - "48081:80"

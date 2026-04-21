@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
+  <base href="/maps/">
   <title>Mapa local con etiquetas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
@@ -93,28 +94,81 @@
       });
     }
 
+    function normalizeTileTemplate(rawUrl) {
+      if (typeof rawUrl !== 'string') return rawUrl;
+
+      // Mantener intactos {z}/{x}/{y}; solo corregir protocolo/host
+      const currentOrigin = window.location.origin;
+      const currentHost = window.location.host;
+      const currentProtocol = window.location.protocol;
+
+      if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+        try {
+          const parsed = new URL(rawUrl);
+          if (parsed.hostname === window.location.hostname) {
+            return rawUrl.replace(
+              /^https?:\/\/[^/]+/i,
+              `${currentProtocol}//${currentHost}`
+            );
+          }
+          return rawUrl;
+        } catch {
+          return rawUrl;
+        }
+      }
+
+      if (rawUrl.startsWith('//')) {
+        return `${currentProtocol}${rawUrl}`;
+      }
+
+      if (rawUrl.startsWith('/')) {
+        return `${currentOrigin}${rawUrl}`;
+      }
+
+      return rawUrl;
+    }
+
+    function normalizeTilejson(tilejson) {
+      const out = { ...tilejson };
+
+      if (Array.isArray(out.tiles)) {
+        out.tiles = out.tiles.map(normalizeTileTemplate);
+      }
+
+      if (Array.isArray(out.data)) {
+        out.data = out.data.map(normalizeTileTemplate);
+      }
+
+      return out;
+    }
+
     async function main() {
       try {
         const params = new URLSearchParams(window.location.search);
-        const sourceId = params.get('source') || 'map';
+        const sourceId = params.get('source') || 'castilla_y_leon';
 
         const MARTIN_BASE =
           window.location.hostname === 'localhost'
             ? 'http://localhost:43000'
             : '/mapas/tiles';
 
-        const tilejsonUrl = `${MARTIN_BASE}/${sourceId}?ts=${Date.now()}`;
+        const tilejsonUrl = `${MARTIN_BASE}/${encodeURIComponent(sourceId)}?ts=${Date.now()}`;
         const r = await fetch(tilejsonUrl, { cache: 'no-store' });
 
         if (!r.ok) {
           throw new Error(`No se pudo leer TileJSON de "${sourceId}": ${r.status}`);
         }
 
-        const tilejson = await r.json();
+        let tilejson = await r.json();
+        tilejson = normalizeTilejson(tilejson);
 
         const bounds = tilejson.bounds || [-180, -85, 180, 85];
         const minZoom = tilejson.minzoom ?? 0;
         const maxZoom = tilejson.maxzoom ?? 14;
+
+        if (!Array.isArray(tilejson.tiles) || !tilejson.tiles.length) {
+          throw new Error(`TileJSON inválido para "${sourceId}": no contiene "tiles"`);
+        }
 
         setStatus(`Fuente ${sourceId} · zoom ${minZoom}-${maxZoom}`);
 
@@ -126,7 +180,10 @@
             sources: {
               osm: {
                 type: 'vector',
-                url: `${MARTIN_BASE}/${sourceId}`
+                tiles: tilejson.tiles,
+                minzoom: minZoom,
+                maxzoom: maxZoom,
+                bounds: bounds
               }
             },
             layers: [
@@ -207,7 +264,6 @@
                   'fill-opacity': 0.9
                 }
               },
-
               {
                 id: 'place-labels',
                 type: 'symbol',
