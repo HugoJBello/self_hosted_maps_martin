@@ -7,13 +7,13 @@ services:
     volumes:
       - ./data:/data:ro
     ports:
-      - "3000:3000"
+      - "43000:3000"   # ⬅️ antes 3000
 
-  viewer:
+  map-viewer:
     image: nginx:alpine
     container_name: map-viewer
     restart: unless-stopped
     volumes:
       - ./viewer:/usr/share/nginx/html:ro
     ports:
-      - "8081:80"
+      - "48081:80"     # ⬅️ antes 8081
