@@ -32,6 +32,48 @@
       white-space: pre-wrap;
       margin-top: 6px;
     }
+
+    .map-marker {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      background: #d32f2f;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+
+    .map-marker.with-text {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #1f2933;
+      font: 18px/1 sans-serif;
+    }
+
+    .map-marker.with-image {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .map-marker.with-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .map-marker.with-svg svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -73,6 +115,172 @@
 
           return [lon, lat];
         });
+    }
+
+    function parseListParam(raw) {
+      if (!raw) return [];
+      return raw.split(';').map(s => s.trim()).filter(Boolean);
+    }
+
+    function parseJsonParam(raw, name) {
+      if (!raw) return null;
+
+      try {
+        return JSON.parse(raw);
+      } catch {
+        try {
+          const normalized = raw.replace(/-/g, '+').replace(/_/g, '/');
+          const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+          const decoded = decodeURIComponent(
+            Array.from(atob(padded), c => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+          );
+          return JSON.parse(decoded);
+        } catch {
+          throw new Error(`JSON inválido en "${name}"`);
+        }
+      }
+    }
+
+    function parseLatLon(value, label = 'coordenada') {
+      if (Array.isArray(value) && value.length >= 2) {
+        const lon = Number(value[0]);
+        const lat = Number(value[1]);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) return [lon, lat];
+      }
+
+      if (value && typeof value === 'object') {
+        if (Array.isArray(value.coord)) {
+          return parseLatLon(value.coord, label);
+        }
+
+        if (Array.isArray(value.coordinates)) {
+          return parseLatLon(value.coordinates, label);
+        }
+
+        const lat = Number(value.lat ?? value.latitude);
+        const lon = Number(value.lon ?? value.lng ?? value.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) return [lon, lat];
+      }
+
+      throw new Error(`${label} inválida`);
+    }
+
+    function normalizeCoordList(value, name) {
+      if (!value) return [];
+      if (!Array.isArray(value)) {
+        throw new Error(`"${name}" debe ser una lista`);
+      }
+      return value.map((item, i) => parseLatLon(item, `${name}[${i}]`));
+    }
+
+    function normalizeMarkers(value, name = 'markers') {
+      if (!value) return [];
+      if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
+        return value.features
+          .filter(feature => feature?.geometry?.type === 'Point')
+          .map((feature, i) => ({
+            coord: parseLatLon(feature.geometry.coordinates, `${name}.features[${i}]`),
+            label: feature.properties?.label ?? feature.properties?.text ?? feature.properties?.name ?? '',
+            icon: feature.properties?.icon ?? ''
+          }));
+      }
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return [{
+          coord: parseLatLon(value, name),
+          label: value.label ?? value.text ?? value.name ?? '',
+          icon: value.icon ?? ''
+        }];
+      }
+
+      if (!Array.isArray(value)) {
+        throw new Error(`"${name}" debe ser una lista o un FeatureCollection de puntos`);
+      }
+
+      return value.map((item, i) => ({
+        coord: parseLatLon(item, `${name}[${i}]`),
+        label: item.label ?? item.text ?? item.name ?? '',
+        icon: item.icon ?? ''
+      }));
+    }
+
+    function markersFromPoints(points, labels, icons) {
+      return points.map((coord, i) => ({
+        coord,
+        label: labels[i] || '',
+        icon: icons[i] || ''
+      }));
+    }
+
+    function createMarkerElement(icon) {
+      const el = document.createElement('div');
+      el.className = 'map-marker';
+
+      if (!icon) return el;
+
+      if (icon === 'pin' || icon === 'pin.svg') {
+        el.classList.add('with-image', 'with-svg');
+        el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" aria-hidden="true"><path fill="#d32f2f" d="M16 2C10.5 2 6 6.5 6 12c0 7.5 10 18 10 18s10-10.5 10-18C26 6.5 21.5 2 16 2z"/><circle cx="16" cy="12" r="4" fill="#fff"/></svg>';
+        return el;
+      }
+
+      if (
+        /^(https?:)?\/\//i.test(icon) ||
+        icon.startsWith('/') ||
+        icon.startsWith('data:image/') ||
+        /\.(svg|png|jpe?g|gif|webp)([?#].*)?$/i.test(icon)
+      ) {
+        el.classList.add('with-image');
+        const img = document.createElement('img');
+        img.src = icon.startsWith('data:image/') ? icon : new URL(icon, document.baseURI).href;
+        img.alt = '';
+        img.onerror = () => {
+          el.classList.remove('with-image');
+          el.textContent = '';
+        };
+        el.appendChild(img);
+        return el;
+      }
+
+      el.classList.add('with-text');
+      el.textContent = icon;
+      return el;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function readOverlay(params) {
+      const inline = parseJsonParam(params.get('markers'), 'markers');
+      const overlayUrl = params.get('overlay');
+      const overlay = {};
+
+      if (overlayUrl) {
+        const response = await fetch(overlayUrl, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`No se pudo leer overlay "${overlayUrl}": ${response.status}`);
+        }
+        Object.assign(overlay, await response.json());
+      }
+
+      if (inline) {
+        if (overlay.markers) {
+          overlay.markers = [
+            ...normalizeMarkers(overlay.markers, 'overlay.markers'),
+            ...normalizeMarkers(inline, 'markers')
+          ];
+        } else {
+          overlay.markers = inline;
+        }
+      }
+
+      return overlay;
     }
 
     function ensureClosedRing(coords) {
@@ -146,6 +354,7 @@
       try {
         const params = new URLSearchParams(window.location.search);
         const sourceId = params.get('source') || 'castilla_y_leon';
+        const overlay = await readOverlay(params);
 
         const MARTIN_BASE =
           window.location.hostname === 'localhost'
@@ -335,9 +544,24 @@
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        const points = parseLatLonList(params.get('points'));
-        const polygon = parseLatLonList(params.get('polygon'));
-        const route = parseLatLonList(params.get('route'));
+        const points = [
+          ...parseLatLonList(params.get('points')),
+          ...normalizeCoordList(overlay.points, 'overlay.points')
+        ];
+        const polygon = [
+          ...parseLatLonList(params.get('polygon')),
+          ...normalizeCoordList(overlay.polygon, 'overlay.polygon')
+        ];
+        const route = [
+          ...parseLatLonList(params.get('route')),
+          ...normalizeCoordList(overlay.route, 'overlay.route')
+        ];
+        const labels = parseListParam(params.get('labels'));
+        const icons = parseListParam(params.get('icons'));
+        const markers = [
+          ...(labels.length || icons.length ? markersFromPoints(points, labels, icons) : []),
+          ...normalizeMarkers(overlay.markers, 'overlay.markers')
+        ];
 
         map.on('load', () => {
           const sourceBounds = new maplibregl.LngLatBounds(
@@ -355,7 +579,7 @@
 
           const allCoords = [];
 
-          if (points.length) {
+          if (points.length && !labels.length && !icons.length) {
             map.addSource('points-src', {
               type: 'geojson',
               data: {
@@ -384,6 +608,23 @@
             });
 
             allCoords.push(...points);
+          }
+
+          if (markers.length) {
+            for (const marker of markers) {
+              const mapMarker = new maplibregl.Marker({
+                element: createMarkerElement(marker.icon),
+                anchor: 'center'
+              }).setLngLat(marker.coord);
+
+              if (marker.label) {
+                mapMarker.setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(escapeHtml(marker.label)));
+              }
+
+              mapMarker.addTo(map);
+            }
+
+            allCoords.push(...markers.map(marker => marker.coord));
           }
 
           if (route.length >= 2) {
