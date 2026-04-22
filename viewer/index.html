@@ -190,6 +190,95 @@
       return value.map((item, i) => parseLatLon(item, `${name}[${i}]`));
     }
 
+    function normalizeRoutes(value, name) {
+      if (!value) return [];
+      if (!Array.isArray(value)) {
+        throw new Error(`"${name}" debe ser una lista de rutas`);
+      }
+
+      return value.map((item, i) => normalizeCoordList(item, `${name}[${i}]`));
+    }
+
+    function looksLikeRouteList(value) {
+      return Array.isArray(value) && value.some(item => Array.isArray(item) && Array.isArray(item[0]));
+    }
+
+    function normalizeLineCoords(value, name) {
+      const coords = normalizeCoordList(value, name);
+      if (coords.length < 2) {
+        throw new Error(`"${name}" debe tener al menos dos coordenadas`);
+      }
+      return coords;
+    }
+
+    function normalizeLineGeometry(geometry, name) {
+      if (!geometry || typeof geometry !== 'object') {
+        throw new Error(`"${name}" debe ser una geometría GeoJSON`);
+      }
+
+      if (geometry.type === 'LineString') {
+        return {
+          type: 'LineString',
+          coordinates: normalizeLineCoords(geometry.coordinates, `${name}.coordinates`)
+        };
+      }
+
+      if (geometry.type === 'MultiLineString') {
+        if (!Array.isArray(geometry.coordinates)) {
+          throw new Error(`"${name}.coordinates" debe ser una lista de rutas`);
+        }
+
+        return {
+          type: 'MultiLineString',
+          coordinates: geometry.coordinates.map((line, i) =>
+            normalizeLineCoords(line, `${name}.coordinates[${i}]`)
+          )
+        };
+      }
+
+      throw new Error(`"${name}" debe ser LineString o MultiLineString`);
+    }
+
+    function normalizeRouteGeoJSON(value, name = 'routeGeoJSON') {
+      if (!value) return null;
+      if (typeof value === 'string') return value;
+
+      if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
+        return {
+          type: 'FeatureCollection',
+          features: value.features.map((feature, i) => ({
+            type: 'Feature',
+            properties: feature.properties || {},
+            geometry: normalizeLineGeometry(feature.geometry, `${name}.features[${i}].geometry`)
+          }))
+        };
+      }
+
+      if (value.type === 'Feature') {
+        return {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: value.properties || {},
+            geometry: normalizeLineGeometry(value.geometry, `${name}.geometry`)
+          }]
+        };
+      }
+
+      if (value.type === 'LineString' || value.type === 'MultiLineString') {
+        return {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: normalizeLineGeometry(value, name)
+          }]
+        };
+      }
+
+      throw new Error(`"${name}" debe ser un FeatureCollection, Feature, LineString, MultiLineString o URL`);
+    }
+
     function normalizeMarkers(value, name = 'markers') {
       if (!value) return [];
       if (typeof value === 'string') {
@@ -441,6 +530,46 @@
       return value.features
         .filter(feature => feature?.geometry?.type === 'Point')
         .map(feature => feature.geometry.coordinates);
+    }
+
+    function getGeometryCoords(geometry) {
+      if (!geometry) return [];
+
+      if (geometry.type === 'Point') {
+        return [geometry.coordinates];
+      }
+
+      if (geometry.type === 'LineString' || geometry.type === 'MultiPoint') {
+        return geometry.coordinates || [];
+      }
+
+      if (geometry.type === 'MultiLineString' || geometry.type === 'Polygon') {
+        return (geometry.coordinates || []).flat();
+      }
+
+      if (geometry.type === 'MultiPolygon') {
+        return (geometry.coordinates || []).flat(2);
+      }
+
+      if (geometry.type === 'GeometryCollection') {
+        return (geometry.geometries || []).flatMap(getGeometryCoords);
+      }
+
+      return [];
+    }
+
+    function getGeoJSONCoords(value) {
+      if (!value || typeof value === 'string') return [];
+
+      if (value.type === 'FeatureCollection') {
+        return value.features.flatMap(feature => getGeometryCoords(feature.geometry));
+      }
+
+      if (value.type === 'Feature') {
+        return getGeometryCoords(value.geometry);
+      }
+
+      return getGeometryCoords(value);
     }
 
     function addDomMarkers(map, markers) {
@@ -831,10 +960,62 @@
           ...parseLatLonList(params.get('polygon')),
           ...normalizeCoordList(overlay.polygon, 'overlay.polygon')
         ];
+        const overlayRouteIsList = looksLikeRouteList(overlay.route);
         const route = [
           ...parseLatLonList(params.get('route')),
-          ...normalizeCoordList(overlay.route, 'overlay.route')
+          ...(overlayRouteIsList ? [] : normalizeCoordList(overlay.route, 'overlay.route'))
         ];
+        const routes = [
+          ...(overlayRouteIsList ? normalizeRoutes(overlay.route, 'overlay.route') : []),
+          ...normalizeRoutes(overlay.routes, 'overlay.routes')
+        ];
+        const routeFeatures = [];
+
+        if (route.length >= 2) {
+          routeFeatures.push({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: route
+            }
+          });
+        }
+
+        routes.forEach((coords, i) => {
+          if (coords.length < 2) {
+            throw new Error(`"overlay.routes[${i}]" debe tener al menos dos coordenadas`);
+          }
+
+          routeFeatures.push({
+            type: 'Feature',
+            properties: { index: i + 1 },
+            geometry: {
+              type: 'LineString',
+              coordinates: coords
+            }
+          });
+        });
+
+        const routeGeoJSONValue = overlay.routeGeoJSON ?? overlay.routeGeoJson;
+        const routeGeoJSON = normalizeRouteGeoJSON(routeGeoJSONValue, 'overlay.routeGeoJSON');
+        let routeData = null;
+
+        if (routeGeoJSON && typeof routeGeoJSON === 'string') {
+          if (routeFeatures.length) {
+            throw new Error('No se puede combinar "overlay.routeGeoJSON" por URL con "route" u "overlay.routes"');
+          }
+          routeData = routeGeoJSON;
+        } else {
+          const geojsonFeatures = routeGeoJSON?.features || [];
+          const features = [...routeFeatures, ...geojsonFeatures];
+          routeData = features.length
+            ? {
+              type: 'FeatureCollection',
+              features
+            }
+            : null;
+        }
         const labels = parseListParam(params.get('labels'));
         const icons = parseListParam(params.get('icons'));
         const pointMarkers = labels.length || icons.length ? markersFromPoints(points, labels, icons) : [];
@@ -869,6 +1050,7 @@
         }
 
         const markerBounds = normalizeBounds(overlay.markersBounds || overlay.bounds, 'overlay.markersBounds');
+        const routeBounds = normalizeBounds(overlay.routeBounds, 'overlay.routeBounds');
         const markerOptions = overlay.markerOptions && typeof overlay.markerOptions === 'object'
           ? overlay.markerOptions
           : {};
@@ -933,17 +1115,10 @@
             );
           }
 
-          if (route.length >= 2) {
+          if (routeData) {
             map.addSource('route-src', {
               type: 'geojson',
-              data: {
-                type: 'Feature',
-                geometry: {
-                  type: 'LineString',
-                  coordinates: route
-                },
-                properties: {}
-              }
+              data: routeData
             });
 
             map.addLayer({
@@ -957,7 +1132,7 @@
               }
             });
 
-            allCoords.push(...route);
+            allCoords.push(...getGeoJSONCoords(routeData));
           }
 
           if (polygon.length >= 3) {
@@ -1000,8 +1175,8 @@
 
           if (allCoords.length) {
             fitToCoords(map, allCoords, 13);
-          } else if (markerBounds) {
-            fitToBoundsArray(map, markerBounds, 13);
+          } else if (routeBounds || markerBounds) {
+            fitToBoundsArray(map, routeBounds || markerBounds, 13);
           }
         });
 

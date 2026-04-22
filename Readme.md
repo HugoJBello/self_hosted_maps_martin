@@ -71,6 +71,10 @@ Formato de `overlay.json`:
 {
   "points": [[-4.72, 41.65]],
   "route": [[-4.72, 41.65], [-4.70, 41.66]],
+  "routes": [
+    [[-4.72, 41.65], [-4.70, 41.66]],
+    [[-4.69, 41.64], [-4.66, 41.69]]
+  ],
   "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]],
   "markers": [
     {
@@ -84,7 +88,85 @@ Formato de `overlay.json`:
 ```
 
 En JSON las coordenadas como array van en orden GeoJSON: `[lon, lat]`.
+`route` mantiene compatibilidad con una sola ruta y también acepta una lista anidada de rutas. Para varias rutas nuevas es preferible usar `routes`, una lista de rutas, o `routeGeoJSON`, que acepta un `FeatureCollection`, un `Feature`, un `LineString`, un `MultiLineString` o una URL GeoJSON.
 El icono `pin` se dibuja inline y no requiere cargar una imagen. Los iconos de imagen relativos se cargan desde el visor (`/maps/archivo.svg` en despliegue). También se pueden usar URLs absolutas.
+
+Varias rutas desde Django
+-------------------------
+
+La opción más flexible es devolver rutas como GeoJSON. El visor pinta todas las features `LineString` y `MultiLineString` de `routeGeoJSON`.
+
+Overlay con rutas inline:
+
+```json
+{
+  "routeGeoJSON": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {"name": "Ruta A"},
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [[-4.72, 41.65], [-4.70, 41.66]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {"name": "Ruta B"},
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [[-4.69, 41.64], [-4.66, 41.69]]
+        }
+      }
+    ]
+  }
+}
+```
+
+Para rutas grandes, se puede pasar una URL y opcionalmente `routeBounds` para centrar sin calcular bounds en el navegador:
+
+```json
+{
+  "routeGeoJSON": "/api/map-routes/123.geojson",
+  "routeBounds": [-4.90, 41.50, -4.50, 41.80]
+}
+```
+
+Ejemplo mínimo en Django:
+
+```python
+from django.http import JsonResponse
+
+
+def map_overlay(request, dataset_id):
+    return JsonResponse({
+        "routeGeoJSON": f"/api/map-routes/{dataset_id}.geojson",
+        "routeBounds": [-4.90, 41.50, -4.50, 41.80],
+    })
+
+
+def map_routes(request, dataset_id):
+    features = [
+        {
+            "type": "Feature",
+            "properties": {"name": "Ruta A"},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-4.72, 41.65], [-4.70, 41.66]],
+            },
+        },
+        {
+            "type": "Feature",
+            "properties": {"name": "Ruta B"},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-4.69, 41.64], [-4.66, 41.69]],
+            },
+        },
+    ]
+    return JsonResponse({"type": "FeatureCollection", "features": features})
+```
 
 Muchos puntos desde otro frontend o Django
 ------------------------------------------
