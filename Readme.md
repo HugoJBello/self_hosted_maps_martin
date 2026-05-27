@@ -1,102 +1,272 @@
+# Self Hosted Maps Martin
 
+Proyecto para servir mapas vectoriales locales con [Martin](https://maplibre.org/martin/) y visualizarlos con MapLibre GL JS. El flujo habitual es:
 
+1. Descargar un `.osm.pbf`.
+2. Generar un `.pmtiles` con Planetiler.
+3. Servirlo con Martin.
+4. Abrir el visor web y pasar puntos, rutas, polígonos o overlays por URL o JSON.
 
-crear mapas
+## Estructura
+
+```text
+.
+├── data/                         # Ficheros .osm.pbf y .pmtiles
+├── martin/config.yaml            # Configuración de Martin
+├── scripts/                      # Scripts de descarga y generación
+├── viewer/
+│   ├── index.html                # Visor principal con MapLibre
+│   ├── pin.svg                   # Icono de ejemplo
+│   └── style.json                # Estilo simple de ejemplo
+├── docker-compose.yml            # Martin + nginx para el visor
+└── Readme.md
 ```
-docker run --rm \
-  -e JAVA_TOOL_OPTIONS="-Xmx4g" \
-  -v "$PWD/data:/data" \
-  -v "$PWD/output:/output" \
-  ghcr.io/onthegomap/planetiler:latest \
-  --download \
-  --osm_path=/data/tu_fichero.osm.pbf \
-  --output=/output/map.pmtiles \
-  --zoom=0-14
 
-mv output/map.pmtiles data/map.pmtiles
+## Puertos
+
+- Visor: `http://localhost:48081/`
+- Martin: `http://localhost:43000/`
+- Catalogo Martin: `http://localhost:43000/catalog`
+- TileJSON de una fuente: `http://localhost:43000/{source}`
+
+En despliegue publico el visor espera poder llegar a Martin con el prefijo `/mapas/tiles`.
+
+## Arranque
+
+```bash
+docker compose up -d
+```
+
+Abrir:
+
+```text
+http://localhost:48081/?source=castilla_y_leon
+```
+
+Si se cambia un `.pmtiles` o la configuración de Martin:
+
+```bash
 docker compose restart martin
+```
 
+## Fuentes de mapa
 
+Martin sirve todos los `.pmtiles` y `.mbtiles` que encuentre en `data/`. El nombre de la fuente es el nombre del fichero sin extensión.
+
+Ejemplos:
+
+- `data/castilla_y_leon.pmtiles` -> `source=castilla_y_leon`
+- `data/spain.pmtiles` -> `source=spain`
+
+URL del visor:
+
+```text
+http://localhost:48081/?source=spain
+```
+
+## Generar Mapas
+
+### Castilla y León
+
+```bash
+./scripts/download_and_build_castilla_y_leon.sh
+```
+
+### España
+
+```bash
+./scripts/download_and_build_spain.sh
+```
+
+### Comando Planetiler manual
+
+```bash
 docker run --rm \
   -e JAVA_TOOL_OPTIONS="-Xmx8g" \
   -v "$PWD/data:/data" \
   ghcr.io/onthegomap/planetiler:latest \
   --download \
   --force \
-  --osm-path=/data/spain-260414.osm.pbf \
+  --osm-path=/data/spain-latest.osm.pbf \
   --output=/data/spain.pmtiles \
   --minzoom=0 \
   --maxzoom=16
-
 ```
 
+Después:
 
-examples
+```bash
+docker compose restart martin
+```
 
+## Parámetros del Visor
+
+El visor se controla con query params.
+
+| Parametro | Uso |
+| --- | --- |
+| `source` | Fuente Martin. Por defecto `castilla_y_leon`. |
+| `points` | Lista de puntos `lat,lon;lat,lon`. |
+| `labels` | Etiquetas para los puntos, separadas por `;`. Se muestran al clicar. |
+| `icons` | Iconos para los puntos, separados por `;`. |
+| `route` | Ruta simple `lat,lon;lat,lon;...`. |
+| `polygon` | Polígono simple `lat,lon;lat,lon;...`. |
+| `markers` | JSON inline de marcadores. |
+| `overlay` | URL a un JSON de overlay. Recomendado para datos grandes. |
+
+En los query params `points`, `route` y `polygon` el orden es `lat,lon`.
+
+En JSON y GeoJSON el orden es el estándar GeoJSON: `[lon, lat]`.
+
+## Puntos
+
+Puntos simples:
+
+```text
 http://localhost:48081/?points=41.65,-4.72;41.66,-4.70;41.64,-4.69
-
-http://localhost:48081/?route=41.65,-4.72;41.66,-4.70;41.67,-4.68;41.69,-4.66
-
-
-https://api-android18.hjbello.org/maps/?source=castilla_y_leon&route=41.65,-4.72;41.66,-4.70;41.64,-4.69
-
+```
 
 Puntos con etiquetas al clicar:
 
-```
+```text
 http://localhost:48081/?points=41.65,-4.72;41.66,-4.70&labels=Valladolid;Otro%20punto
 ```
 
-Puntos con etiquetas e iconos:
+Si no se pasan `labels` ni `icons`, los puntos se pintan como capa GeoJSON. Si se pasan etiquetas o iconos, se convierten en marcadores con popup.
 
-```
+## Iconos
+
+Iconos por texto o emoji:
+
+```text
 http://localhost:48081/?points=41.65,-4.72;41.66,-4.70&labels=Valladolid;Destino&icons=📍;⭐
 ```
 
-También se puede pasar una lista JSON de marcadores en `markers`:
+Icono inline incluido por el visor:
 
-```
-http://localhost:48081/?markers=%5B%7B%22lat%22%3A41.65%2C%22lon%22%3A-4.72%2C%22label%22%3A%22Valladolid%22%2C%22icon%22%3A%22pin%22%7D%5D
-```
-
-Para evitar URLs largas, publicar un JSON y pasarlo con `overlay`:
-
-```
-http://localhost:48081/?overlay=/overlay.json
+```text
+http://localhost:48081/?points=41.65,-4.72&labels=Valladolid&icons=pin
 ```
 
-Formato de `overlay.json`:
+Icono por fichero o URL:
+
+```text
+http://localhost:48081/?points=41.65,-4.72&labels=Valladolid&icons=pin.svg
+```
+
+También se aceptan:
+
+- Rutas absolutas: `/maps/pin.svg`
+- URLs absolutas: `https://example.com/icon.png`
+- Imágenes `data:image/...`
+- Ficheros `.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`
+
+## Marcadores JSON
+
+Para evitar URLs largas con muchos campos, usar `markers` o, mejor, `overlay`.
+
+Ejemplo de `markers` inline codificado en URL:
+
+```text
+http://localhost:48081/?markers=%5B%7B%22lat%22%3A41.65%2C%22lon%22%3A-4.72%2C%22title%22%3A%22Paciente%201%22%2C%22label%22%3A%22Valladolid%22%2C%22icon%22%3A%22pin%22%7D%5D
+```
+
+El JSON original seria:
+
+```json
+[
+  {
+    "lat": 41.65,
+    "lon": -4.72,
+    "title": "Paciente 1",
+    "label": "Valladolid",
+    "icon": "pin"
+  }
+]
+```
+
+Campos aceptados por marcador:
+
+| Campo | Uso |
+| --- | --- |
+| `lat`, `lon` | Coordenadas en objeto. También valen `latitude`, `longitude` o `lng`. |
+| `coord` | Coordenada `[lon, lat]`. |
+| `coordinates` | Coordenada `[lon, lat]`. |
+| `title` | Título del popup. |
+| `label`, `text`, `name` | Etiqueta principal del popup. |
+| `message`, `mensaje` | Mensaje visible en el popup. |
+| `detail`, `details`, `detalle` | Detalle secundario del mensaje. |
+| `description` | Texto/html descriptivo. |
+| `popup` | HTML del popup. |
+| `html` | HTML del popup. |
+| `url`, `href` | Enlace del popup. |
+| `linkLabel`, `link_label` | Texto del enlace. Por defecto `Ver mensaje`. |
+| `icon` | Emoji, texto, `pin`, fichero de imagen o URL. |
+
+Nota de seguridad: `popup`, `html` y `description` se insertan como HTML. Usarlos solo con contenido generado por una fuente de confianza o sanitizado en backend. Para texto normal es mejor `message` y `detail`.
+
+## Mensajes y Detalles al Clicar
+
+Ejemplo recomendado en un overlay:
 
 ```json
 {
-  "points": [[-4.72, 41.65]],
-  "route": [[-4.72, 41.65], [-4.70, 41.66]],
-  "routes": [
-    [[-4.72, 41.65], [-4.70, 41.66]],
-    [[-4.69, 41.64], [-4.66, 41.69]]
-  ],
-  "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]],
   "markers": [
     {
       "lat": 41.65,
       "lon": -4.72,
+      "title": "Registro 123",
       "label": "Valladolid",
+      "message": "Respuesta incoherente detectada",
+      "detail": "Paciente: A17 · Cuestionario: inicial · Fecha: 2026-05-27",
+      "url": "/admin/recordings/123/",
+      "linkLabel": "Abrir registro",
       "icon": "pin"
     }
   ]
 }
 ```
 
-En JSON las coordenadas como array van en orden GeoJSON: `[lon, lat]`.
-`route` mantiene compatibilidad con una sola ruta y también acepta una lista anidada de rutas. Para varias rutas nuevas es preferible usar `routes`, una lista de rutas, o `routeGeoJSON`, que acepta un `FeatureCollection`, un `Feature`, un `LineString`, un `MultiLineString` o una URL GeoJSON.
-El icono `pin` se dibuja inline y no requiere cargar una imagen. Los iconos de imagen relativos se cargan desde el visor (`/maps/archivo.svg` en despliegue). También se pueden usar URLs absolutas.
+Al clicar el marcador se muestra un popup con título, etiqueta, mensaje, detalle y enlace. En capas masivas (`markerOptions.render = "layer"`) el popup también funciona, pero los iconos personalizados no se dibujan como DOM.
 
-Varias rutas desde Django
--------------------------
+## Rutas
 
-La opción más flexible es devolver rutas como GeoJSON. El visor pinta todas las features `LineString` y `MultiLineString` de `routeGeoJSON`.
+Ruta simple por URL:
 
-Overlay con rutas inline:
+```text
+http://localhost:48081/?route=41.65,-4.72;41.66,-4.70;41.67,-4.68;41.69,-4.66
+```
+
+En overlay:
+
+```json
+{
+  "route": [[-4.72, 41.65], [-4.70, 41.66], [-4.68, 41.67]]
+}
+```
+
+Varias rutas:
+
+```json
+{
+  "routes": [
+    [[-4.72, 41.65], [-4.70, 41.66]],
+    [[-4.69, 41.64], [-4.66, 41.69]]
+  ]
+}
+```
+
+## Rutas GeoJSON
+
+`routeGeoJSON` acepta:
+
+- `FeatureCollection`
+- `Feature`
+- `LineString`
+- `MultiLineString`
+- URL a un GeoJSON
+
+Ejemplo inline:
 
 ```json
 {
@@ -124,7 +294,7 @@ Overlay con rutas inline:
 }
 ```
 
-Para rutas grandes, se puede pasar una URL y opcionalmente `routeBounds` para centrar sin calcular bounds en el navegador:
+Ejemplo con URL:
 
 ```json
 {
@@ -133,49 +303,81 @@ Para rutas grandes, se puede pasar una URL y opcionalmente `routeBounds` para ce
 }
 ```
 
-Ejemplo mínimo en Django:
+`routeBounds` es recomendable para rutas grandes cargadas por URL, porque permite centrar el mapa sin tener que calcular todos los bounds en el navegador.
 
-```python
-from django.http import JsonResponse
+## Polígonos
 
+Por URL:
 
-def map_overlay(request, dataset_id):
-    return JsonResponse({
-        "routeGeoJSON": f"/api/map-routes/{dataset_id}.geojson",
-        "routeBounds": [-4.90, 41.50, -4.50, 41.80],
-    })
-
-
-def map_routes(request, dataset_id):
-    features = [
-        {
-            "type": "Feature",
-            "properties": {"name": "Ruta A"},
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [[-4.72, 41.65], [-4.70, 41.66]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"name": "Ruta B"},
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [[-4.69, 41.64], [-4.66, 41.69]],
-            },
-        },
-    ]
-    return JsonResponse({"type": "FeatureCollection", "features": features})
+```text
+http://localhost:48081/?polygon=41.65,-4.72;41.66,-4.70;41.64,-4.69
 ```
 
-Muchos puntos desde otro frontend o Django
-------------------------------------------
+En overlay:
 
-Para muchos puntos no conviene crear un marcador HTML por cada punto. El visor usa una capa GeoJSON de MapLibre con clustering, por lo que puede consumir directamente un GeoJSON generado por Django u otro frontend/backend.
+```json
+{
+  "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]]
+}
+```
+
+El visor cierra el anillo automáticamente si el primer y último punto no coinciden.
+
+## Overlay JSON
+
+Usar `overlay` cuando haya muchos datos o campos de popup.
+
+URL:
+
+```text
+http://localhost:48081/?source=castilla_y_leon&overlay=/overlay.json
+```
+
+Formato completo:
+
+```json
+{
+  "points": [[-4.72, 41.65]],
+  "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]],
+  "route": [[-4.72, 41.65], [-4.70, 41.66]],
+  "routes": [
+    [[-4.72, 41.65], [-4.70, 41.66]],
+    [[-4.69, 41.64], [-4.66, 41.69]]
+  ],
+  "routeGeoJSON": "/api/map-routes/123.geojson",
+  "routeBounds": [-4.90, 41.50, -4.50, 41.80],
+  "markers": [
+    {
+      "lat": 41.65,
+      "lon": -4.72,
+      "title": "Registro 123",
+      "label": "Valladolid",
+      "message": "Mensaje principal",
+      "detail": "Detalle secundario",
+      "url": "/admin/recordings/123/",
+      "linkLabel": "Abrir registro",
+      "icon": "pin"
+    }
+  ],
+  "markersBounds": [-4.90, 41.50, -4.50, 41.80],
+  "markerOptions": {
+    "cluster": true,
+    "clusterMaxZoom": 14,
+    "clusterRadius": 50,
+    "render": "layer"
+  }
+}
+```
+
+No se puede combinar `overlay.markers` por URL con `markers` inline o puntos etiquetados, porque el visor no descarga y fusiona dos datasets remotos. En ese caso debe devolverlo todo desde el backend en un único overlay.
+
+## Muchos Puntos con GeoJSON
+
+Para muchos puntos conviene usar una capa MapLibre con clustering, no un marcador HTML por punto.
 
 URL del visor:
 
-```
+```text
 http://localhost:48081/?source=castilla_y_leon&overlay=/api/map-overlay/123/
 ```
 
@@ -207,18 +409,26 @@ Respuesta de `/api/map-points/123.geojson`:
         "coordinates": [-4.72, 41.65]
       },
       "properties": {
-        "label": "Valladolid"
+        "title": "Registro 123",
+        "label": "Valladolid",
+        "message": "Respuesta incoherente detectada",
+        "detail": "Paciente: A17",
+        "url": "/admin/recordings/123/",
+        "linkLabel": "Abrir registro"
       }
     }
   ]
 }
 ```
 
-También se puede poner el `FeatureCollection` directamente dentro de `markers`, pero para datasets grandes es mejor usar una URL. Si esa URL está en otro dominio, el backend debe permitir CORS. `markersBounds` permite que el visor centre el mapa sin tener que calcular bounds en el navegador para un GeoJSON remoto.
+`markerOptions.render`:
 
-`markerOptions.render` puede ser `"layer"` para muchos puntos o `"dom"` para pocos marcadores con iconos HTML personalizados. Si no se indica, los puntos masivos usan capa y los iconos inline mantienen el comportamiento anterior.
+- `"layer"`: recomendado para muchos puntos. Soporta clustering y popup al clicar.
+- `"dom"`: recomendado para pocos marcadores cuando se necesitan iconos HTML personalizados.
 
-Ejemplo mínimo en Django:
+## Ejemplo Django
+
+Overlay con puntos y rutas grandes:
 
 ```python
 from django.http import JsonResponse
@@ -228,7 +438,9 @@ def map_overlay(request, dataset_id):
     return JsonResponse({
         "markers": f"/api/map-points/{dataset_id}.geojson",
         "markersBounds": [-4.90, 41.50, -4.50, 41.80],
-        "markerOptions": {"cluster": True},
+        "markerOptions": {"cluster": True, "render": "layer"},
+        "routeGeoJSON": f"/api/map-routes/{dataset_id}.geojson",
+        "routeBounds": [-4.90, 41.50, -4.50, 41.80],
     })
 
 
@@ -237,8 +449,91 @@ def map_points(request, dataset_id):
         {
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [-4.72, 41.65]},
-            "properties": {"label": "Valladolid"},
+            "properties": {
+                "title": "Registro 123",
+                "label": "Valladolid",
+                "message": "Respuesta incoherente detectada",
+                "detail": "Paciente: A17",
+                "url": "/admin/recordings/123/",
+                "linkLabel": "Abrir registro",
+            },
+        }
+    ]
+    return JsonResponse({"type": "FeatureCollection", "features": features})
+
+
+def map_routes(request, dataset_id):
+    features = [
+        {
+            "type": "Feature",
+            "properties": {"name": "Ruta A"},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-4.72, 41.65], [-4.70, 41.66]],
+            },
         }
     ]
     return JsonResponse({"type": "FeatureCollection", "features": features})
 ```
+
+Si esas URLs están en otro dominio, el backend debe permitir CORS.
+
+## Ejemplos Rápidos
+
+Mapa base:
+
+```text
+http://localhost:48081/?source=castilla_y_leon
+```
+
+Puntos:
+
+```text
+http://localhost:48081/?points=41.65,-4.72;41.66,-4.70;41.64,-4.69
+```
+
+Ruta:
+
+```text
+http://localhost:48081/?route=41.65,-4.72;41.66,-4.70;41.67,-4.68;41.69,-4.66
+```
+
+Overlay:
+
+```text
+http://localhost:48081/?source=castilla_y_leon&overlay=/api/map-overlay/123/
+```
+
+Despliegue publico:
+
+```text
+https://api-android18.hjbello.org/maps/?source=castilla_y_leon&route=41.65,-4.72;41.66,-4.70;41.64,-4.69
+```
+
+## Diagnóstico
+
+Ver contenedores:
+
+```bash
+docker compose ps
+```
+
+Ver logs:
+
+```bash
+docker compose logs martin
+docker compose logs map-viewer
+```
+
+Comprobar catalogo:
+
+```text
+http://localhost:43000/catalog
+```
+
+Errores habituales:
+
+- `No se pudo leer TileJSON`: la fuente no existe, el nombre de `source` no coincide con el `.pmtiles` o Martin no está levantado.
+- Mapa sin datos: revisar que el `.pmtiles` tenga bounds correctos y que el `source` sea el esperado.
+- Overlay remoto no carga: revisar CORS y que devuelva JSON válido.
+- Icono no aparece: revisar ruta relativa al visor. En despliegue, los ficheros del visor cuelgan de `/maps/`.

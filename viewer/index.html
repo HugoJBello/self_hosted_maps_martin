@@ -83,8 +83,22 @@
       font: 13px/1.35 sans-serif;
     }
 
+    .marker-popup-title {
+      color: #111827;
+      font-weight: 700;
+    }
+
     .marker-popup-label {
       color: #1f2933;
+    }
+
+    .marker-popup-message,
+    .marker-popup-detail {
+      color: #374151;
+    }
+
+    .marker-popup-detail {
+      font-size: 12px;
     }
 
     .marker-popup a {
@@ -285,13 +299,17 @@
         return value;
       }
       const markerProperties = item => ({
+        title: item?.title ?? '',
         label: item?.label ?? item?.text ?? item?.name ?? '',
+        message: item?.message ?? item?.mensaje ?? '',
+        detail: item?.detail ?? item?.details ?? item?.detalle ?? '',
         icon: item?.icon ?? '',
         html: item?.html ?? '',
         popup: item?.popup ?? '',
         description: item?.description ?? '',
         url: item?.url ?? '',
-        href: item?.href ?? ''
+        href: item?.href ?? '',
+        linkLabel: item?.linkLabel ?? item?.link_label ?? ''
       });
 
       if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
@@ -327,13 +345,17 @@
           type: 'Feature',
           properties: {
             index: i + 1,
+            title: marker.title || '',
             label: marker.label || '',
+            message: marker.message || '',
+            detail: marker.detail || '',
             icon: marker.icon || '',
             html: marker.html || '',
             popup: marker.popup || '',
             description: marker.description || '',
             url: marker.url || '',
-            href: marker.href || ''
+            href: marker.href || '',
+            linkLabel: marker.linkLabel || ''
           },
           geometry: {
             type: 'Point',
@@ -489,20 +511,45 @@
     }
 
     function createPopupContent(props) {
+      const title = props?.title || '';
       const label = props?.label || props?.text || props?.name || '';
+      const message = props?.message || props?.mensaje || '';
+      const detail = props?.detail || props?.details || props?.detalle || '';
       const html = getPopupHtml(props);
       const url = getPopupUrl(props);
+      const linkLabel = props?.linkLabel || props?.link_label || 'Ver mensaje';
 
-      if (!label && !html && !url) return null;
+      if (!title && !label && !message && !detail && !html && !url) return null;
 
       const wrapper = document.createElement('div');
       wrapper.className = 'marker-popup';
+
+      if (title) {
+        const titleNode = document.createElement('div');
+        titleNode.className = 'marker-popup-title';
+        titleNode.textContent = title;
+        wrapper.appendChild(titleNode);
+      }
 
       if (label) {
         const labelNode = document.createElement('div');
         labelNode.className = 'marker-popup-label';
         labelNode.textContent = label;
         wrapper.appendChild(labelNode);
+      }
+
+      if (message) {
+        const messageNode = document.createElement('div');
+        messageNode.className = 'marker-popup-message';
+        messageNode.textContent = message;
+        wrapper.appendChild(messageNode);
+      }
+
+      if (detail) {
+        const detailNode = document.createElement('div');
+        detailNode.className = 'marker-popup-detail';
+        detailNode.textContent = detail;
+        wrapper.appendChild(detailNode);
       }
 
       if (html) {
@@ -515,7 +562,7 @@
         link.href = url;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
-        link.textContent = 'Ver mensaje';
+        link.textContent = linkLabel;
         wrapper.appendChild(link);
       }
 
