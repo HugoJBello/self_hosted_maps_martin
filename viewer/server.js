@@ -118,8 +118,7 @@ function pruneSessions() {
 }
 
 function sessionUrlForRequest(req, id) {
-  const prefix = req.path.startsWith('/maps/') ? '/maps' : '';
-  return `${prefix}/?session=${encodeURIComponent(id)}`;
+  return `/maps/?session=${encodeURIComponent(id)}`;
 }
 
 function sendSessionResponse(req, res, id, session) {
