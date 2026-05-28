@@ -2,39 +2,55 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa local</title>
+  <title>Ejemplo de embed Martin Maps Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
-    html, body, #map {
+    body {
       margin: 0;
-      padding: 0;
+      padding: 24px;
+      background: #f4f6f3;
+      color: #18211f;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: #64706b;
+      line-height: 1.45;
+    }
+
+    iframe {
       width: 100%;
-      height: 100%;
+      height: 560px;
+      border: 1px solid rgba(24, 33, 31, 0.14);
+      border-radius: 8px;
+      background: #fff;
     }
   </style>
 </head>
 <body>
-  <div id="map"></div>
-
-  <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
-  <script>
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: '/style.json',
-      center: [-4.7, 41.6],
-      zoom: 6
-    });
-
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    map.on('load', () => {
-      console.log('Mapa cargado');
-    });
-
-    map.on('error', (e) => {
-      console.error('Error MapLibre:', e);
-    });
-  </script>
+  <main>
+    <h1>Embed compacto del visor</h1>
+    <p>Este ejemplo conserva las rutas y parametros del visor principal, pero lo muestra en modo iframe.</p>
+    <iframe
+      src="http://localhost:48081/maps/?source=castilla_y_leon&embed=1&points=41.65,-4.72;41.66,-4.70&labels=Valladolid;Destino&icons=pin;pin"
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+      title="Martin Maps Viewer">
+    </iframe>
+  </main>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Self Hosted Maps Martin
 
-Proyecto para servir mapas vectoriales locales con [Martin](https://maplibre.org/martin/) y visualizarlos con MapLibre GL JS. El flujo habitual es:
+Proyecto para servir mapas vectoriales locales con [Martin](https://maplibre.org/martin/) y visualizarlos con una UI embebible basada en Express + MapLibre GL JS. El flujo habitual es:
 
 1. Descargar un `.osm.pbf`.
 2. Generar un `.pmtiles` con Planetiler.
@@ -15,21 +15,79 @@ Proyecto para servir mapas vectoriales locales con [Martin](https://maplibre.org
 ├── martin/config.yaml            # Configuración de Martin
 ├── scripts/                      # Scripts de descarga y generación
 ├── viewer/
-│   ├── index.html                # Visor principal con MapLibre
+│   ├── Dockerfile                # Imagen Node/Express del visor
+│   ├── package.json              # Dependencias del visor
+│   ├── server.js                 # Servidor Express
+│   ├── index.html                # Entrada HTML del visor
+│   ├── assets/
+│   │   ├── app.css               # Interfaz y estados responsive
+│   │   └── app.js                # Logica MapLibre y compatibilidad de parametros
 │   ├── pin.svg                   # Icono de ejemplo
 │   └── style.json                # Estilo simple de ejemplo
-├── docker-compose.yml            # Martin + nginx para el visor
+├── docker-compose.yml            # Martin + visor Node/Express
 └── Readme.md
 ```
 
 ## Puertos
 
 - Visor: `http://localhost:48081/`
+- Visor con prefijo historico: `http://localhost:48081/maps/`
 - Martin: `http://localhost:43000/`
-- Catalogo Martin: `http://localhost:43000/catalog`
-- TileJSON de una fuente: `http://localhost:43000/{source}`
+- Catalogo Martin: `http://localhost:43000/mapas/tiles/catalog`
+- TileJSON de una fuente: `http://localhost:43000/mapas/tiles/{source}`
 
-En despliegue publico el visor espera poder llegar a Martin con el prefijo `/mapas/tiles`.
+En despliegue publico el visor espera poder llegar a Martin con el prefijo `/mapas/tiles`. En local usa `http://localhost:43000/mapas/tiles`, que coincide con `route_prefix` en `martin/config.yaml`.
+
+## UI del Visor
+
+El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Express que:
+
+- Sirve la UI en `/` y `/maps/` para conservar URLs existentes.
+- Sirve MapLibre desde `node_modules`, sin depender del CDN de MapLibre.
+- Mantiene los query params antiguos: `source`, `points`, `labels`, `icons`, `route`, `polygon`, `markers` y `overlay`.
+- Añade controles de fuente, centrado, visibilidad de capas, estado de carga y copia de iframe.
+- Permite modo compacto para embeds con `embed=1` o `chrome=0`.
+- No envia `X-Frame-Options`, y define `frame-ancestors *` para permitir uso dentro de iframes. Restringir ese valor en produccion si se quiere limitar que dominios pueden embeber el visor.
+
+### Rutas del Visor
+
+| Ruta | Uso |
+| --- | --- |
+| `/` | UI principal. |
+| `/maps/` | Alias compatible con despliegues que publican el visor bajo `/maps/`. |
+| `/healthz` | Healthcheck JSON del visor. |
+| `/api/tilejson/{source}` y `/maps/api/tilejson/{source}` | Proxy interno de TileJSON. Reescribe `tiles` a rutas relativas `/mapas/tiles/...` para evitar mixed content. |
+| `/assets/*` y `/maps/assets/*` | CSS y JS propios. |
+| `/vendor/maplibre-gl/*` y `/maps/vendor/maplibre-gl/*` | Assets locales de MapLibre. |
+
+### Embed en iframe
+
+Ejemplo minimo:
+
+```html
+<iframe
+  src="http://localhost:48081/maps/?source=castilla_y_leon&embed=1"
+  width="100%"
+  height="520"
+  style="border:0"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade">
+</iframe>
+```
+
+`embed=1` y `chrome=0` ocultan la barra superior y el panel lateral. El mapa conserva controles nativos, marcadores, rutas, poligonos y popups.
+
+### Martin en Otro Origen
+
+El visor acepta un parametro opcional `martinBase` para pruebas o despliegues especiales:
+
+```text
+http://localhost:48081/maps/?source=spain&martinBase=http://localhost:43000/mapas/tiles
+```
+
+En produccion se recomienda mantener Martin detras del mismo dominio mediante `/mapas/tiles`, porque reduce problemas de CORS y hace los iframes mas faciles de integrar.
+
+Por defecto, el navegador no lee el TileJSON directamente desde Martin. Lo pide al visor en `/api/tilejson/{source}` o `/maps/api/tilejson/{source}` cuando la UI esta publicada bajo `/maps/`, y Express lo obtiene desde `MARTIN_BASE_INTERNAL` (`http://martin:3000/mapas/tiles` en Docker Compose). Esto evita que Martin publique plantillas de tiles con `http://...` cuando el visor esta en HTTPS.
 
 ## Arranque
 
@@ -41,6 +99,12 @@ Abrir:
 
 ```text
 http://localhost:48081/?source=castilla_y_leon
+```
+
+Tambien funciona con el prefijo historico:
+
+```text
+http://localhost:48081/maps/?source=castilla_y_leon
 ```
 
 Si se cambia un `.pmtiles` o la configuración de Martin:
@@ -525,10 +589,16 @@ docker compose logs martin
 docker compose logs map-viewer
 ```
 
+Comprobar salud del visor:
+
+```text
+http://localhost:48081/healthz
+```
+
 Comprobar catalogo:
 
 ```text
-http://localhost:43000/catalog
+http://localhost:43000/mapas/tiles/catalog
 ```
 
 Errores habituales:
@@ -536,4 +606,6 @@ Errores habituales:
 - `No se pudo leer TileJSON`: la fuente no existe, el nombre de `source` no coincide con el `.pmtiles` o Martin no está levantado.
 - Mapa sin datos: revisar que el `.pmtiles` tenga bounds correctos y que el `source` sea el esperado.
 - Overlay remoto no carga: revisar CORS y que devuelva JSON válido.
-- Icono no aparece: revisar ruta relativa al visor. En despliegue, los ficheros del visor cuelgan de `/maps/`.
+- Icono no aparece: revisar ruta relativa al visor. En despliegue, los ficheros del visor funcionan tanto desde `/` como desde `/maps/`.
+- Assets de MapLibre no aparecen: reconstruir `map-viewer` para instalar dependencias Node dentro de la imagen.
+- `AJAXError: Failed to fetch (0)` con tiles `http://.../mapas/tiles/...` en un visor publicado por HTTPS: reconstruir y redesplegar `map-viewer`. El visor usa `/api/tilejson/{source}` para reescribir las plantillas de tiles a rutas relativas y sirve HTML/JS/CSS con `Cache-Control: no-store` para evitar que una version antigua quede cacheada.

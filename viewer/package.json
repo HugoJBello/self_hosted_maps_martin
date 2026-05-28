@@ -1,0 +1,18 @@
+{
+  "name": "martin-map-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Embeddable MapLibre UI for a local Martin vector tile server.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "PORT=48081 node server.js"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "maplibre-gl": "5.3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

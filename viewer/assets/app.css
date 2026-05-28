@@ -1,0 +1,377 @@
+:root {
+  --bg: #f4f6f3;
+  --surface: rgba(255, 255, 255, 0.94);
+  --surface-solid: #ffffff;
+  --text: #18211f;
+  --muted: #64706b;
+  --line: rgba(24, 33, 31, 0.14);
+  --shadow: 0 18px 45px rgba(24, 33, 31, 0.18);
+  --accent: #126c5c;
+  --accent-strong: #0d574a;
+  --route: #d93d36;
+  --polygon: #246db8;
+  --marker: #c62f2a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+.app-shell,
+.map-stage,
+.map-canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+.map-stage {
+  position: relative;
+  min-height: 320px;
+}
+
+.map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.topbar,
+.control-panel,
+.compact-badge {
+  position: absolute;
+  z-index: 5;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.topbar {
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.brand-block {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(18, 108, 92, 0.95), rgba(36, 109, 184, 0.9)),
+    #126c5c;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.topbar-actions,
+.embed-actions,
+.source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-solid);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.control-panel {
+  top: 96px;
+  left: 16px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100% - 112px);
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.panel-section {
+  display: grid;
+  gap: 8px;
+}
+
+.section-title,
+label {
+  color: #2a3632;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.source-row input {
+  min-width: 0;
+  height: 40px;
+  flex: 1 1 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--text);
+}
+
+.source-row button,
+.embed-actions button {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.embed-actions button:last-child {
+  background: #21302d;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-grid div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.metric-grid span,
+.metric-grid small {
+  display: block;
+}
+
+.metric-grid span {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.metric-grid small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.switch-row {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.switch-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.status-box,
+.error-box {
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.status-box {
+  background: rgba(18, 108, 92, 0.09);
+  color: var(--accent-strong);
+}
+
+.error-box {
+  white-space: pre-wrap;
+  background: rgba(198, 47, 42, 0.1);
+  color: #9c211d;
+}
+
+.compact-badge {
+  left: 12px;
+  bottom: 12px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  padding: 6px 6px 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.map-marker {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--marker);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+  cursor: pointer;
+}
+
+.map-marker.with-text,
+.map-marker.with-image {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.map-marker.with-text {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.map-marker.with-image {
+  overflow: hidden;
+}
+
+.map-marker.with-image img,
+.map-marker.with-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.marker-popup {
+  display: grid;
+  gap: 6px;
+  max-width: 300px;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font: 13px/1.4 Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.marker-popup-title {
+  font-weight: 800;
+}
+
+.marker-popup-label {
+  color: #26342f;
+  font-weight: 650;
+}
+
+.marker-popup-message,
+.marker-popup-detail {
+  color: #43504c;
+}
+
+.marker-popup-detail {
+  font-size: 12px;
+}
+
+.marker-popup a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.maplibregl-ctrl-group {
+  border-radius: 8px;
+}
+
+.app-shell[data-chrome="compact"] [data-chrome-panel] {
+  display: none;
+}
+
+.app-shell[data-chrome="compact"] .compact-badge {
+  display: flex;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .control-panel {
+    left: 10px;
+    right: 10px;
+    top: 84px;
+    width: auto;
+    max-height: calc(100% - 96px);
+  }
+
+  .brand-mark {
+    display: none;
+  }
+
+  h1 {
+    font-size: 15px;
+  }
+
+  p {
+    font-size: 12px;
+  }
+}

@@ -11,10 +11,12 @@ services:
       - "43000:3000"
 
   map-viewer:
-    image: nginx:alpine
+    build:
+      context: ./viewer
     container_name: map-viewer
     restart: unless-stopped
-    volumes:
-      - ./viewer:/usr/share/nginx/html:ro
+    environment:
+      PORT: "8080"
+      MARTIN_BASE_INTERNAL: "http://martin:3000/mapas/tiles"
     ports:
-      - "48081:80"
+      - "48081:8080"
