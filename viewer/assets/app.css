@@ -118,6 +118,33 @@ p {
   gap: 8px;
 }
 
+.source-picker {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  padding: 0 10px;
+  text-transform: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.source-picker select {
+  width: min(220px, 26vw);
+  min-width: 130px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  outline: none;
+}
+
 .icon-button {
   width: 40px;
   height: 40px;
@@ -149,6 +176,10 @@ p {
   gap: 16px;
   border-radius: 8px;
   padding: 14px;
+}
+
+.control-panel[hidden] {
+  display: none !important;
 }
 
 .panel-section {
@@ -183,6 +214,10 @@ label {
   background: var(--accent);
   color: #fff;
   font-weight: 700;
+}
+
+.source-panel[hidden] {
+  display: none;
 }
 
 .embed-actions button:last-child {
@@ -353,6 +388,7 @@ label {
     top: 10px;
     left: 10px;
     right: 10px;
+    align-items: flex-start;
   }
 
   .control-panel {
@@ -365,6 +401,20 @@ label {
 
   .brand-mark {
     display: none;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .source-picker {
+    width: 100%;
+    order: 5;
+  }
+
+  .source-picker select {
+    width: 100%;
   }
 
   h1 {

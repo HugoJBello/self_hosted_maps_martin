@@ -45,7 +45,7 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 - Sirve la UI en `/` y `/maps/` para conservar URLs existentes.
 - Sirve MapLibre desde `node_modules`, sin depender del CDN de MapLibre.
 - Mantiene los query params antiguos: `source`, `points`, `labels`, `icons`, `route`, `polygon`, `markers` y `overlay`.
-- Añade controles de fuente, centrado, visibilidad de capas, estado de carga y copia de iframe.
+- Añade selector de mapas disponibles desde el catalogo Martin, campo manual avanzado, centrado, visibilidad de capas, estado de carga y copia de iframe.
 - Permite modo compacto para embeds con `embed=1` o `chrome=0`.
 - No envia `X-Frame-Options`, y define `frame-ancestors *` para permitir uso dentro de iframes. Restringir ese valor en produccion si se quiere limitar que dominios pueden embeber el visor.
 
@@ -56,6 +56,7 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 | `/` | UI principal. |
 | `/maps/` | Alias compatible con despliegues que publican el visor bajo `/maps/`. |
 | `/healthz` | Healthcheck JSON del visor. |
+| `/api/catalog` y `/maps/api/catalog` | Proxy interno del catalogo Martin usado por el selector de mapas. |
 | `/api/tilejson/{source}` y `/maps/api/tilejson/{source}` | Proxy interno de TileJSON. Reescribe `tiles` a rutas relativas `/mapas/tiles/...` para evitar mixed content. |
 | `/assets/*` y `/maps/assets/*` | CSS y JS propios. |
 | `/vendor/maplibre-gl/*` y `/maps/vendor/maplibre-gl/*` | Assets locales de MapLibre. |
@@ -181,6 +182,8 @@ El visor se controla con query params.
 En los query params `points`, `route` y `polygon` el orden es `lat,lon`.
 
 En JSON y GeoJSON el orden es el estándar GeoJSON: `[lon, lat]`.
+
+La barra superior muestra los mapas disponibles leyendo `/maps/api/catalog` o `/api/catalog`. Al seleccionar un mapa se actualiza el parametro `source` de la URL. El panel lateral de datos arranca plegado por defecto y se abre desde el boton de panel de la barra superior; dentro queda el campo manual `Fuente Martin`, tambien oculto hasta usar el boton de fuente avanzada.
 
 ## Puntos
 

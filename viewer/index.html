@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light" />
   <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
-  <link rel="stylesheet" href="./assets/app.css?v=20260528-maps-api" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260528-panel-closed" />
 </head>
 <body>
   <main class="app-shell" data-chrome="full">
@@ -23,8 +23,17 @@
         </div>
 
         <div class="topbar-actions">
+          <label class="source-picker" for="sourceSelect">
+            <span>Mapa</span>
+            <select id="sourceSelect" aria-label="Seleccionar mapa">
+              <option value="">Cargando mapas</option>
+            </select>
+          </label>
           <button id="fitButton" class="icon-button" type="button" title="Centrar contenido" aria-label="Centrar contenido">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M21 16v3a2 2 0 0 1-2 2h-3M8 12h8M12 8v8"/></svg>
+          </button>
+          <button id="sourcePanelButton" class="icon-button" type="button" title="Fuente manual" aria-label="Fuente manual">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M6 8h12M8 16h8"/></svg>
           </button>
           <button id="panelButton" class="icon-button" type="button" title="Panel de datos" aria-label="Panel de datos">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
@@ -32,9 +41,9 @@
         </div>
       </div>
 
-      <aside id="controlPanel" class="control-panel" data-chrome-panel aria-label="Controles del visor">
-        <div class="panel-section">
-          <label for="sourceInput">Fuente Martin</label>
+      <aside id="controlPanel" class="control-panel" data-chrome-panel aria-label="Controles del visor" hidden>
+        <div id="sourcePanel" class="panel-section source-panel" hidden>
+          <label for="sourceInput">Fuente Martin manual</label>
           <div class="source-row">
             <input id="sourceInput" type="text" autocomplete="off" spellcheck="false" />
             <button id="sourceButton" type="button">Cargar</button>
@@ -84,7 +93,7 @@
         <div id="error" class="error-box" role="alert" hidden></div>
       </aside>
 
-      <div id="compactBadge" class="compact-badge" hidden>
+      <div id="compactBadge" class="compact-badge">
         <span id="compactTitle">Martin Maps</span>
         <button id="showPanelButton" class="icon-button" type="button" title="Mostrar panel" aria-label="Mostrar panel">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
@@ -94,6 +103,6 @@
   </main>
 
   <script src="./vendor/maplibre-gl/maplibre-gl.js"></script>
-  <script type="module" src="./assets/app.js?v=20260528-maps-api"></script>
+  <script type="module" src="./assets/app.js?v=20260528-panel-closed"></script>
 </body>
 </html>

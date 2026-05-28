@@ -57,6 +57,26 @@ async function sendTilejson(req, res, next) {
   }
 }
 
+async function sendCatalog(req, res, next) {
+  try {
+    const upstream = await fetch(`${martinBaseInternal}/catalog`, {
+      headers: { accept: 'application/json' }
+    });
+
+    if (!upstream.ok) {
+      res.status(upstream.status).json({ error: `Martin returned ${upstream.status}` });
+      return;
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(await upstream.json());
+  } catch (error) {
+    next(error);
+  }
+}
+
+app.get('/api/catalog', sendCatalog);
+app.get('/maps/api/catalog', sendCatalog);
 app.get('/api/tilejson/:source', sendTilejson);
 app.get('/maps/api/tilejson/:source', sendTilejson);
 

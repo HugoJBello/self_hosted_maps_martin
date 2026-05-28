@@ -5,8 +5,12 @@ const DEFAULT_ZOOM = 7;
 const els = {
   shell: document.querySelector('.app-shell'),
   sourceSummary: document.getElementById('sourceSummary'),
+  sourceSelect: document.getElementById('sourceSelect'),
   sourceInput: document.getElementById('sourceInput'),
   sourceButton: document.getElementById('sourceButton'),
+  sourcePanel: document.getElementById('sourcePanel'),
+  sourcePanelButton: document.getElementById('sourcePanelButton'),
+  controlPanel: document.getElementById('controlPanel'),
   status: document.getElementById('status'),
   error: document.getElementById('error'),
   markerCount: document.getElementById('markerCount'),
@@ -524,6 +528,11 @@ function tilejsonUrl(params, sourceId) {
   return `${appPrefix}/api/tilejson/${encodeURIComponent(sourceId)}?ts=${cacheKey}`;
 }
 
+function catalogUrl() {
+  const appPrefix = window.location.pathname.startsWith('/maps') ? '/maps' : '';
+  return `${appPrefix}/api/catalog?ts=${Date.now()}`;
+}
+
 function mapStyle(tilejson, minZoom, maxZoom, bounds) {
   return {
     version: 8,
@@ -603,7 +612,48 @@ function setLayerVisibility(group, visible) {
 function applyChromeMode(params) {
   const compact = params.get('chrome') === '0' || params.get('embed') === '1';
   els.shell.dataset.chrome = compact ? 'compact' : 'full';
-  els.compactBadge.hidden = !compact;
+}
+
+function navigateToSource(sourceId) {
+  const next = sourceId.trim() || DEFAULT_SOURCE;
+  const url = new URL(window.location.href);
+  url.searchParams.set('source', next);
+  window.location.href = url.toString();
+}
+
+async function loadSourceCatalog(currentSource) {
+  if (!els.sourceSelect) return;
+
+  try {
+    const response = await fetch(catalogUrl(), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Catalogo Martin no disponible: ${response.status}`);
+    const catalog = await response.json();
+    const sources = Object.keys(catalog.tiles || {}).sort((a, b) => a.localeCompare(b));
+
+    if (!sources.length) {
+      els.sourceSelect.innerHTML = '<option value="">Sin mapas</option>';
+      els.sourceSelect.disabled = true;
+      return;
+    }
+
+    els.sourceSelect.innerHTML = sources
+      .map(source => `<option value="${source}">${source}</option>`)
+      .join('');
+
+    if (!sources.includes(currentSource)) {
+      const option = document.createElement('option');
+      option.value = currentSource;
+      option.textContent = `${currentSource} (manual)`;
+      els.sourceSelect.prepend(option);
+    }
+
+    els.sourceSelect.value = currentSource;
+    els.sourceSelect.disabled = false;
+  } catch (error) {
+    console.warn(error);
+    els.sourceSelect.innerHTML = `<option value="${currentSource}">${currentSource}</option>`;
+    els.sourceSelect.value = currentSource;
+  }
 }
 
 function copyEmbedCode() {
@@ -617,14 +667,16 @@ function copyEmbedCode() {
 function prepareControls(params) {
   const sourceId = params.get('source') || DEFAULT_SOURCE;
   els.sourceInput.value = sourceId;
-  els.sourceButton.addEventListener('click', () => {
-    const next = els.sourceInput.value.trim() || DEFAULT_SOURCE;
-    const url = new URL(window.location.href);
-    url.searchParams.set('source', next);
-    window.location.href = url.toString();
-  });
+  loadSourceCatalog(sourceId);
+  els.sourceSelect.addEventListener('change', () => navigateToSource(els.sourceSelect.value));
+  els.sourceButton.addEventListener('click', () => navigateToSource(els.sourceInput.value));
   els.sourceInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') els.sourceButton.click();
+  });
+  els.sourcePanelButton.addEventListener('click', () => {
+    els.controlPanel.hidden = false;
+    els.sourcePanel.hidden = !els.sourcePanel.hidden;
+    if (!els.sourcePanel.hidden) els.sourceInput.focus();
   });
   els.markersToggle.addEventListener('change', () => setLayerVisibility('markers', els.markersToggle.checked));
   els.routesToggle.addEventListener('change', () => setLayerVisibility('routes', els.routesToggle.checked));
@@ -634,12 +686,17 @@ function prepareControls(params) {
     else if (state.sourceBounds) fitToBoundsArray(state.map, state.sourceBounds, 9);
   });
   els.panelButton.addEventListener('click', () => {
-    els.shell.dataset.chrome = els.shell.dataset.chrome === 'compact' ? 'full' : 'compact';
-    els.compactBadge.hidden = els.shell.dataset.chrome !== 'compact';
+    if (els.shell.dataset.chrome === 'compact') {
+      els.shell.dataset.chrome = 'full';
+      els.controlPanel.hidden = false;
+      return;
+    }
+
+    els.controlPanel.hidden = !els.controlPanel.hidden;
   });
   els.showPanelButton.addEventListener('click', () => {
     els.shell.dataset.chrome = 'full';
-    els.compactBadge.hidden = true;
+    els.controlPanel.hidden = false;
   });
   els.compactButton.addEventListener('click', () => {
     const url = new URL(window.location.href);
