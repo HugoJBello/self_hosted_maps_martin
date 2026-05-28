@@ -58,6 +58,8 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 | `/healthz` | Healthcheck JSON del visor. |
 | `/api/catalog` y `/maps/api/catalog` | Proxy interno del catalogo Martin usado por el selector de mapas. |
 | `/api/tilejson/{source}` y `/maps/api/tilejson/{source}` | Proxy interno de TileJSON. Reescribe `tiles` a rutas relativas `/mapas/tiles/...` para evitar mixed content. |
+| `/api/session` y `/maps/api/session` | Crea sesiones temporales de mapa por `POST` con GeoJSON u overlay en el body. |
+| `/api/session/{id}` y `/maps/api/session/{id}` | Lee, reemplaza por `PATCH` o elimina por `DELETE` una sesion temporal. |
 | `/assets/*` y `/maps/assets/*` | CSS y JS propios. |
 | `/vendor/maplibre-gl/*` y `/maps/vendor/maplibre-gl/*` | Assets locales de MapLibre. |
 
@@ -437,6 +439,154 @@ Formato completo:
 ```
 
 No se puede combinar `overlay.markers` por URL con `markers` inline o puntos etiquetados, porque el visor no descarga y fusiona dos datasets remotos. En ese caso debe devolverlo todo desde el backend en un único overlay.
+
+## Sesiones por POST
+
+Para clientes que no quieren publicar un endpoint `overlay`, lidiar con CORS, codificar JSON en query params o generar URLs largas, el visor ofrece sesiones temporales. El cliente envia un body JSON al visor y recibe una URL lista para abrir o embeber.
+
+Crear sesion:
+
+```bash
+curl -X POST http://localhost:48081/maps/api/session \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "source": "castilla_y_leon",
+    "geojson": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": {
+            "title": "Registro 123",
+            "label": "Valladolid",
+            "message": "Punto recibido por POST",
+            "detail": "GeoJSON estandar",
+            "icon": "pin"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-4.72, 41.65]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {"title": "Ruta A"},
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-4.72, 41.65], [-4.70, 41.66], [-4.68, 41.67]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {"title": "Zona"},
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-4.74, 41.64],
+              [-4.70, 41.64],
+              [-4.70, 41.67],
+              [-4.74, 41.67],
+              [-4.74, 41.64]
+            ]]
+          }
+        }
+      ]
+    },
+    "options": {
+      "fit": true,
+      "cluster": true,
+      "render": "layer"
+    }
+  }'
+```
+
+Respuesta:
+
+```json
+{
+  "id": "3a08e0c8-8d31-4427-9011-025b45f11162",
+  "url": "/maps/?session=3a08e0c8-8d31-4427-9011-025b45f11162",
+  "expiresAt": "2026-05-28T13:30:00.000Z",
+  "ttlSeconds": 3600
+}
+```
+
+Abrir o embeber:
+
+```html
+<iframe
+  src="https://api-android18.hjbello.org/maps/?session=3a08e0c8-8d31-4427-9011-025b45f11162&embed=1"
+  width="100%"
+  height="520"
+  style="border:0"
+  loading="lazy">
+</iframe>
+```
+
+El campo `geojson` acepta:
+
+| Tipo GeoJSON | Como se pinta |
+| --- | --- |
+| `Point`, `MultiPoint` | Marcadores o capa de puntos con clustering. |
+| `LineString`, `MultiLineString` | Rutas. |
+| `Polygon`, `MultiPolygon` | Poligonos con relleno y borde. |
+| `GeometryCollection` | Se descompone en puntos, rutas y poligonos. |
+
+Propiedades recomendadas para popups en puntos y poligonos:
+
+| Campo | Uso |
+| --- | --- |
+| `title` | Titulo del popup. |
+| `label`, `text`, `name` | Etiqueta principal. |
+| `message`, `mensaje` | Mensaje visible. |
+| `detail`, `details`, `detalle` | Detalle secundario. |
+| `url`, `href` | Enlace del popup. |
+| `linkLabel`, `link_label` | Texto del enlace. |
+| `icon` | Emoji, texto, `pin`, fichero de imagen o URL. |
+
+Tambien se puede enviar el mismo formato del overlay actual dentro de `overlay`, pero sin exponer una URL externa:
+
+```json
+{
+  "source": "spain",
+  "overlay": {
+    "markers": [
+      {
+        "lat": 41.65,
+        "lon": -4.72,
+        "title": "Registro 123",
+        "message": "Marcador usando formato overlay",
+        "icon": "pin"
+      }
+    ],
+    "routes": [
+      [[-4.72, 41.65], [-4.70, 41.66]]
+    ],
+    "markerOptions": {
+      "cluster": true,
+      "render": "layer"
+    }
+  }
+}
+```
+
+Operaciones disponibles:
+
+| Metodo | Ruta | Uso |
+| --- | --- | --- |
+| `POST` | `/maps/api/session` | Crea una sesion nueva. |
+| `GET` | `/maps/api/session/{id}` | Devuelve el payload de la sesion. |
+| `PATCH` | `/maps/api/session/{id}` | Reemplaza el contenido de una sesion y renueva su TTL. |
+| `DELETE` | `/maps/api/session/{id}` | Elimina una sesion. |
+
+Configuracion del servidor:
+
+| Variable | Valor por defecto | Uso |
+| --- | --- | --- |
+| `MAP_SESSION_TTL_SECONDS` | `3600` | Tiempo de vida de una sesion en memoria. |
+| `MAP_SESSION_MAX_BYTES` | `5mb` | Tamano maximo del body JSON aceptado. |
+
+Las sesiones se guardan en memoria dentro de `map-viewer`. Si el contenedor se reinicia, se pierden. Para despliegues con multiples replicas o sesiones de larga vida, conviene cambiar el almacenamiento a Redis o SQLite manteniendo las mismas rutas.
 
 ## Muchos Puntos con GeoJSON
 

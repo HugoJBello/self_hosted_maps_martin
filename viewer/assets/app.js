@@ -36,7 +36,7 @@ const state = {
   layerGroups: {
     markers: ['points-layer', 'markers-layer', 'marker-clusters', 'marker-cluster-count'],
     routes: ['route-line'],
-    polygons: ['poly-fill', 'poly-line']
+    polygons: ['poly-fill', 'poly-line', 'area-fill', 'area-line']
   }
 };
 
@@ -172,6 +172,54 @@ function normalizeRouteGeoJSON(value, name = 'routeGeoJSON') {
   throw new Error(`"${name}" debe ser FeatureCollection, Feature, LineString, MultiLineString o URL`);
 }
 
+function normalizeAreaGeometry(geometry, name) {
+  if (!geometry || typeof geometry !== 'object') {
+    throw new Error(`"${name}" debe ser una geometria GeoJSON`);
+  }
+
+  if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+    return geometry;
+  }
+
+  throw new Error(`"${name}" debe ser Polygon o MultiPolygon`);
+}
+
+function normalizeAreaGeoJSON(value, name = 'areaGeoJSON') {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+
+  if (value.type === 'FeatureCollection' && Array.isArray(value.features)) {
+    return {
+      type: 'FeatureCollection',
+      features: value.features.map((feature, i) => ({
+        type: 'Feature',
+        properties: feature.properties || {},
+        geometry: normalizeAreaGeometry(feature.geometry, `${name}.features[${i}].geometry`)
+      }))
+    };
+  }
+
+  if (value.type === 'Feature') {
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: value.properties || {},
+        geometry: normalizeAreaGeometry(value.geometry, `${name}.geometry`)
+      }]
+    };
+  }
+
+  if (value.type === 'Polygon' || value.type === 'MultiPolygon') {
+    return {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: {}, geometry: normalizeAreaGeometry(value, name) }]
+    };
+  }
+
+  throw new Error(`"${name}" debe ser FeatureCollection, Feature, Polygon, MultiPolygon o URL`);
+}
+
 function markerProperties(item) {
   return {
     title: item?.title ?? '',
@@ -301,6 +349,131 @@ async function readOverlay(params) {
     }
   }
   return overlay;
+}
+
+function sessionUrl(id) {
+  const appPrefix = window.location.pathname.startsWith('/maps') ? '/maps' : '';
+  return `${appPrefix}/api/session/${encodeURIComponent(id)}?ts=${Date.now()}`;
+}
+
+async function readSession(params) {
+  const sessionId = params.get('session');
+  if (!sessionId) return null;
+
+  const response = await fetch(sessionUrl(sessionId), { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`No se pudo leer sesion "${sessionId}": ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function featureCollection(features) {
+  return { type: 'FeatureCollection', features };
+}
+
+function pushPointFeature(features, coordinates, properties = {}) {
+  parseLatLon(coordinates, 'geojson Point');
+  features.push({
+    type: 'Feature',
+    properties,
+    geometry: { type: 'Point', coordinates }
+  });
+}
+
+function pushLineFeature(features, geometry, properties = {}) {
+  normalizeLineGeometry(geometry, 'geojson line');
+  features.push({ type: 'Feature', properties, geometry });
+}
+
+function pushAreaFeature(features, geometry, properties = {}) {
+  normalizeAreaGeometry(geometry, 'geojson area');
+  features.push({ type: 'Feature', properties, geometry });
+}
+
+function collectGeoJSONFeatures(value, pointFeatures, lineFeatures, areaFeatures, inheritedProperties = {}) {
+  if (!value) return;
+
+  if (value.type === 'FeatureCollection') {
+    (value.features || []).forEach(feature => collectGeoJSONFeatures(feature, pointFeatures, lineFeatures, areaFeatures));
+    return;
+  }
+
+  if (value.type === 'Feature') {
+    collectGeoJSONFeatures(value.geometry, pointFeatures, lineFeatures, areaFeatures, value.properties || {});
+    return;
+  }
+
+  if (value.type === 'Point') {
+    pushPointFeature(pointFeatures, value.coordinates, inheritedProperties);
+    return;
+  }
+
+  if (value.type === 'MultiPoint') {
+    (value.coordinates || []).forEach(coordinates => pushPointFeature(pointFeatures, coordinates, inheritedProperties));
+    return;
+  }
+
+  if (value.type === 'LineString' || value.type === 'MultiLineString') {
+    pushLineFeature(lineFeatures, value, inheritedProperties);
+    return;
+  }
+
+  if (value.type === 'Polygon' || value.type === 'MultiPolygon') {
+    pushAreaFeature(areaFeatures, value, inheritedProperties);
+    return;
+  }
+
+  if (value.type === 'GeometryCollection') {
+    (value.geometries || []).forEach(geometry => collectGeoJSONFeatures(geometry, pointFeatures, lineFeatures, areaFeatures, inheritedProperties));
+  }
+}
+
+function overlayFromGeoJSON(value, options = {}) {
+  if (!value) return {};
+
+  const pointFeatures = [];
+  const lineFeatures = [];
+  const areaFeatures = [];
+  collectGeoJSONFeatures(value, pointFeatures, lineFeatures, areaFeatures);
+
+  const overlay = {};
+  if (pointFeatures.length) overlay.markers = featureCollection(pointFeatures);
+  if (lineFeatures.length) overlay.routeGeoJSON = featureCollection(lineFeatures);
+  if (areaFeatures.length) overlay.areaGeoJSON = featureCollection(areaFeatures);
+  if (Array.isArray(options.bounds)) overlay.bounds = options.bounds;
+  if (Array.isArray(options.markersBounds)) overlay.markersBounds = options.markersBounds;
+  if (Array.isArray(options.routeBounds)) overlay.routeBounds = options.routeBounds;
+  if (options.markerOptions && typeof options.markerOptions === 'object') {
+    overlay.markerOptions = options.markerOptions;
+  } else if ('cluster' in options || 'clusterMaxZoom' in options || 'clusterRadius' in options || 'render' in options) {
+    overlay.markerOptions = {
+      cluster: options.cluster,
+      clusterMaxZoom: options.clusterMaxZoom,
+      clusterRadius: options.clusterRadius,
+      render: options.render
+    };
+  }
+
+  return overlay;
+}
+
+function mergeOverlay(...items) {
+  const out = {};
+
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    Object.assign(out, item);
+
+    if (out.markerOptions || item.markerOptions) {
+      out.markerOptions = {
+        ...(out.markerOptions || {}),
+        ...(item.markerOptions || {})
+      };
+    }
+  }
+
+  return out;
 }
 
 function ensureClosedRing(coords) {
@@ -664,8 +837,8 @@ function copyEmbedCode() {
   setStatus('Codigo iframe copiado al portapapeles');
 }
 
-function prepareControls(params) {
-  const sourceId = params.get('source') || DEFAULT_SOURCE;
+function prepareControls(params, activeSource = DEFAULT_SOURCE) {
+  const sourceId = activeSource || params.get('source') || DEFAULT_SOURCE;
   els.sourceInput.value = sourceId;
   loadSourceCatalog(sourceId);
   els.sourceSelect.addEventListener('change', () => navigateToSource(els.sourceSelect.value));
@@ -711,11 +884,16 @@ async function main() {
   try {
     if (!window.maplibregl) throw new Error('MapLibre GL JS no esta disponible');
     const params = new URLSearchParams(window.location.search);
-    prepareControls(params);
+    const session = await readSession(params);
+    const sourceId = params.get('source') || session?.source || DEFAULT_SOURCE;
+    prepareControls(params, sourceId);
     applyChromeMode(params);
 
-    const sourceId = params.get('source') || DEFAULT_SOURCE;
-    const overlay = await readOverlay(params);
+    const overlay = mergeOverlay(
+      await readOverlay(params),
+      session?.overlay,
+      overlayFromGeoJSON(session?.geojson, session?.options)
+    );
     const sourceTilejsonUrl = tilejsonUrl(params, sourceId);
     setStatus(`Leyendo TileJSON de ${sourceId}`);
 
@@ -771,6 +949,8 @@ async function main() {
       const features = [...routeFeatures, ...(routeGeoJSON?.features || [])];
       routeData = features.length ? { type: 'FeatureCollection', features } : null;
     }
+    const areaGeoJSONValue = overlay.areaGeoJSON ?? overlay.areaGeoJson;
+    const areaData = normalizeAreaGeoJSON(areaGeoJSONValue, 'overlay.areaGeoJSON');
 
     const labels = parseListParam(params.get('labels'));
     const icons = parseListParam(params.get('icons'));
@@ -800,7 +980,7 @@ async function main() {
 
     els.markerCount.textContent = String(markerList.length + getFeatureCollectionCoords(markerData).length + (points.length && !labels.length && !icons.length ? points.length : 0));
     els.routeCount.textContent = String(routeFeatures.length + (routeGeoJSON?.features?.length || 0));
-    els.polygonCount.textContent = polygon.length >= 3 ? '1' : '0';
+    els.polygonCount.textContent = String((polygon.length >= 3 ? 1 : 0) + (areaData?.features?.length || 0));
 
     map.on('load', () => {
       fitToBoundsArray(map, bounds, 9);
@@ -839,6 +1019,30 @@ async function main() {
           paint: { 'line-color': '#d93d36', 'line-width': 4, 'line-opacity': 0.92 }
         });
         allCoords.push(...getGeoJSONCoords(routeData));
+      }
+
+      if (areaData) {
+        map.addSource('area-src', { type: 'geojson', data: areaData });
+        map.addLayer({
+          id: 'area-fill',
+          type: 'fill',
+          source: 'area-src',
+          paint: { 'fill-color': '#246db8', 'fill-opacity': 0.18 }
+        });
+        map.addLayer({
+          id: 'area-line',
+          type: 'line',
+          source: 'area-src',
+          paint: { 'line-color': '#246db8', 'line-width': 2 }
+        });
+        map.on('click', 'area-fill', (e) => {
+          const feature = e.features?.[0];
+          const popupContent = createPopupContent(feature?.properties || {});
+          if (!popupContent) return;
+          new maplibregl.Popup({ offset: 12 }).setLngLat(e.lngLat).setDOMContent(popupContent).addTo(map);
+        });
+        bindPointer(map, 'area-fill');
+        allCoords.push(...getGeoJSONCoords(areaData));
       }
 
       if (polygon.length >= 3) {
