@@ -177,11 +177,11 @@ function normalizeAreaGeometry(geometry, name) {
     throw new Error(`"${name}" debe ser una geometria GeoJSON`);
   }
 
-  if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+  if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon' || geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
     return geometry;
   }
 
-  throw new Error(`"${name}" debe ser Polygon o MultiPolygon`);
+  throw new Error(`"${name}" debe ser Polygon, MultiPolygon, LineString o MultiLineString`);
 }
 
 function normalizeAreaGeoJSON(value, name = 'areaGeoJSON') {
@@ -210,14 +210,14 @@ function normalizeAreaGeoJSON(value, name = 'areaGeoJSON') {
     };
   }
 
-  if (value.type === 'Polygon' || value.type === 'MultiPolygon') {
+  if (value.type === 'Polygon' || value.type === 'MultiPolygon' || value.type === 'LineString' || value.type === 'MultiLineString') {
     return {
       type: 'FeatureCollection',
       features: [{ type: 'Feature', properties: {}, geometry: normalizeAreaGeometry(value, name) }]
     };
   }
 
-  throw new Error(`"${name}" debe ser FeatureCollection, Feature, Polygon, MultiPolygon o URL`);
+  throw new Error(`"${name}" debe ser FeatureCollection, Feature, Polygon, MultiPolygon, LineString, MultiLineString o URL`);
 }
 
 function markerProperties(item) {
@@ -481,6 +481,57 @@ function ensureClosedRing(coords) {
   const first = coords[0];
   const last = coords[coords.length - 1];
   return first[0] === last[0] && first[1] === last[1] ? coords : [...coords, first];
+}
+
+function isDisabled(value) {
+  return value === '0' || value === 'false' || value === 'no';
+}
+
+function isFalseValue(value) {
+  return value === false || value === 0 || isDisabled(String(value).toLowerCase());
+}
+
+function numberStyleExpression(properties, fallback) {
+  if (!properties.length) return fallback;
+  const [first, ...rest] = properties;
+  return [
+    'case',
+    ['has', first],
+    ['to-number', ['get', first]],
+    numberStyleExpression(rest, fallback)
+  ];
+}
+
+function areaFillPaint() {
+  return {
+    'fill-color': ['coalesce', ['get', 'fillColor'], ['get', 'fill'], ['get', 'color'], '#246db8'],
+    'fill-opacity': numberStyleExpression(['fillOpacity', 'fillAlpha', 'alpha', 'opacity'], 0.18)
+  };
+}
+
+function areaLinePaint() {
+  return {
+    'line-color': ['coalesce', ['get', 'strokeColor'], ['get', 'stroke'], ['get', 'lineColor'], ['get', 'color'], '#246db8'],
+    'line-width': numberStyleExpression(['strokeWidth', 'lineWidth', 'width'], 2),
+    'line-opacity': numberStyleExpression(['strokeOpacity', 'lineOpacity'], 1)
+  };
+}
+
+function polygonStyleProperties(params, overlay) {
+  const polygonOptions = overlay.polygonOptions && typeof overlay.polygonOptions === 'object' ? overlay.polygonOptions : {};
+  const properties = { ...polygonOptions };
+
+  const fillColor = params.get('polygonFillColor') || params.get('polygonColor');
+  const fillOpacity = params.get('polygonFillOpacity') || params.get('polygonAlpha');
+  const strokeColor = params.get('polygonStrokeColor') || params.get('polygonColor');
+  const strokeWidth = params.get('polygonStrokeWidth');
+
+  if (fillColor) properties.fillColor = fillColor;
+  if (fillOpacity && Number.isFinite(Number(fillOpacity))) properties.fillOpacity = Number(fillOpacity);
+  if (strokeColor) properties.strokeColor = strokeColor;
+  if (strokeWidth && Number.isFinite(Number(strokeWidth))) properties.strokeWidth = Number(strokeWidth);
+
+  return properties;
 }
 
 function fitToCoords(map, coords, maxZoom = 13) {
@@ -949,8 +1000,10 @@ async function main() {
       const features = [...routeFeatures, ...(routeGeoJSON?.features || [])];
       routeData = features.length ? { type: 'FeatureCollection', features } : null;
     }
-    const areaGeoJSONValue = overlay.areaGeoJSON ?? overlay.areaGeoJson;
+    const areaGeoJSONValue = overlay.polygonGeoJSON ?? overlay.polygonGeoJson ?? overlay.areaGeoJSON ?? overlay.areaGeoJson;
     const areaData = normalizeAreaGeoJSON(areaGeoJSONValue, 'overlay.areaGeoJSON');
+    const polygonClosed = !isDisabled((params.get('polygonClosed') ?? params.get('closed') ?? '').toLowerCase()) && !isFalseValue(overlay.polygonClosed);
+    const polygonProperties = polygonStyleProperties(params, overlay);
 
     const labels = parseListParam(params.get('labels'));
     const icons = parseListParam(params.get('icons'));
@@ -1027,30 +1080,38 @@ async function main() {
           id: 'area-fill',
           type: 'fill',
           source: 'area-src',
-          paint: { 'fill-color': '#246db8', 'fill-opacity': 0.18 }
+          paint: areaFillPaint()
         });
         map.addLayer({
           id: 'area-line',
           type: 'line',
           source: 'area-src',
-          paint: { 'line-color': '#246db8', 'line-width': 2 }
+          paint: areaLinePaint()
         });
-        map.on('click', 'area-fill', (e) => {
+        const showAreaPopup = (e) => {
           const feature = e.features?.[0];
           const popupContent = createPopupContent(feature?.properties || {});
           if (!popupContent) return;
           new maplibregl.Popup({ offset: 12 }).setLngLat(e.lngLat).setDOMContent(popupContent).addTo(map);
-        });
+        };
+        map.on('click', 'area-fill', showAreaPopup);
+        map.on('click', 'area-line', showAreaPopup);
         bindPointer(map, 'area-fill');
+        bindPointer(map, 'area-line');
         allCoords.push(...getGeoJSONCoords(areaData));
       }
 
       if (polygon.length >= 3) {
-        const closed = ensureClosedRing(polygon);
-        map.addSource('poly-src', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [closed] }, properties: {} } });
-        map.addLayer({ id: 'poly-fill', type: 'fill', source: 'poly-src', paint: { 'fill-color': '#246db8', 'fill-opacity': 0.22 } });
-        map.addLayer({ id: 'poly-line', type: 'line', source: 'poly-src', paint: { 'line-color': '#246db8', 'line-width': 2 } });
-        allCoords.push(...closed);
+        const geometry = polygonClosed
+          ? { type: 'Polygon', coordinates: [ensureClosedRing(polygon)] }
+          : { type: 'LineString', coordinates: polygon };
+        map.addSource('poly-src', {
+          type: 'geojson',
+          data: { type: 'Feature', geometry, properties: polygonProperties }
+        });
+        map.addLayer({ id: 'poly-fill', type: 'fill', source: 'poly-src', paint: areaFillPaint() });
+        map.addLayer({ id: 'poly-line', type: 'line', source: 'poly-src', paint: areaLinePaint() });
+        allCoords.push(...getGeometryCoords(geometry));
       }
 
       state.contentCoords = allCoords;

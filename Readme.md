@@ -178,6 +178,12 @@ El visor se controla con query params.
 | `icons` | Iconos para los puntos, separados por `;`. |
 | `route` | Ruta simple `lat,lon;lat,lon;...`. |
 | `polygon` | Polígono simple `lat,lon;lat,lon;...`. |
+| `polygonClosed` | `1` por defecto. Usar `0` para dibujar `polygon` como contorno abierto sin relleno. |
+| `polygonColor` | Color de relleno y borde para `polygon`. |
+| `polygonFillColor` | Color de relleno para `polygon`. |
+| `polygonFillOpacity` / `polygonAlpha` | Opacidad del relleno de `polygon`. |
+| `polygonStrokeColor` | Color del borde de `polygon`. |
+| `polygonStrokeWidth` | Grosor del borde de `polygon`. |
 | `markers` | JSON inline de marcadores. |
 | `overlay` | URL a un JSON de overlay. Recomendado para datos grandes. |
 
@@ -382,15 +388,100 @@ Por URL:
 http://localhost:48081/?polygon=41.65,-4.72;41.66,-4.70;41.64,-4.69
 ```
 
+Con estilo de relleno y borde:
+
+```text
+http://localhost:48081/?polygon=41.65,-4.72;41.66,-4.70;41.64,-4.69&polygonFillColor=%23ffcc00&polygonFillOpacity=0.35&polygonStrokeColor=%238a5a00&polygonStrokeWidth=3
+```
+
+Contorno abierto, sin cerrar el último punto contra el primero:
+
+```text
+http://localhost:48081/?polygon=41.65,-4.72;41.66,-4.70;41.64,-4.69&polygonClosed=0&polygonStrokeColor=%23246db8
+```
+
 En overlay:
 
 ```json
 {
-  "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]]
+  "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]],
+  "polygonOptions": {
+    "fillColor": "#ffcc00",
+    "fillOpacity": 0.35,
+    "strokeColor": "#8a5a00",
+    "strokeWidth": 3
+  }
 }
 ```
 
-El visor cierra el anillo automáticamente si el primer y último punto no coinciden.
+El visor cierra el anillo automáticamente si el primer y último punto no coinciden. Para dibujar el mismo campo `polygon` como línea abierta, usar `"polygonClosed": false` en el overlay o `polygonClosed=0` en URL.
+
+### Polígonos GeoJSON
+
+Para datos estructurados, el formato más convencional es GeoJSON. El visor acepta `polygonGeoJSON` y, por compatibilidad, `areaGeoJSON`.
+
+`polygonGeoJSON` acepta:
+
+- `FeatureCollection`
+- `Feature`
+- `Polygon`
+- `MultiPolygon`
+- `LineString` o `MultiLineString` para contornos abiertos
+- URL a un GeoJSON
+
+Ejemplo con una región cerrada y un contorno abierto:
+
+```json
+{
+  "polygonGeoJSON": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "title": "Zona cerrada",
+          "fillColor": "#2f80ed",
+          "fillOpacity": 0.22,
+          "strokeColor": "#174ea6",
+          "strokeWidth": 2
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [-4.74, 41.64],
+            [-4.70, 41.64],
+            [-4.70, 41.67],
+            [-4.74, 41.67],
+            [-4.74, 41.64]
+          ]]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "title": "Contorno abierto",
+          "strokeColor": "#d93d36",
+          "strokeWidth": 4
+        },
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [[-4.76, 41.63], [-4.73, 41.66], [-4.68, 41.65]]
+        }
+      }
+    ]
+  }
+}
+```
+
+Propiedades de estilo aceptadas por feature:
+
+| Campo | Uso |
+| --- | --- |
+| `fillColor`, `fill`, `color` | Color del relleno. |
+| `fillOpacity`, `fillAlpha`, `alpha`, `opacity` | Opacidad del relleno entre `0` y `1`. |
+| `strokeColor`, `stroke`, `lineColor`, `color` | Color del borde o contorno. |
+| `strokeOpacity`, `lineOpacity` | Opacidad del borde o contorno entre `0` y `1`. |
+| `strokeWidth`, `lineWidth`, `width` | Grosor del borde o contorno en pixeles. |
 
 ## Overlay JSON
 
@@ -408,6 +499,14 @@ Formato completo:
 {
   "points": [[-4.72, 41.65]],
   "polygon": [[-4.72, 41.65], [-4.70, 41.66], [-4.69, 41.64]],
+  "polygonClosed": true,
+  "polygonOptions": {
+    "fillColor": "#2f80ed",
+    "fillOpacity": 0.22,
+    "strokeColor": "#174ea6",
+    "strokeWidth": 2
+  },
+  "polygonGeoJSON": "/api/map-polygons/123.geojson",
   "route": [[-4.72, 41.65], [-4.70, 41.66]],
   "routes": [
     [[-4.72, 41.65], [-4.70, 41.66]],
