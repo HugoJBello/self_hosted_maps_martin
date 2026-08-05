@@ -517,6 +517,14 @@ function areaLinePaint() {
   };
 }
 
+function routeLinePaint() {
+  return {
+    'line-color': ['coalesce', ['get', 'strokeColor'], ['get', 'stroke'], ['get', 'lineColor'], ['get', 'color'], '#d93d36'],
+    'line-width': numberStyleExpression(['strokeWidth', 'lineWidth', 'width'], 4),
+    'line-opacity': numberStyleExpression(['strokeOpacity', 'lineOpacity'], 0.92)
+  };
+}
+
 function polygonStyleProperties(params, overlay) {
   const polygonOptions = overlay.polygonOptions && typeof overlay.polygonOptions === 'object' ? overlay.polygonOptions : {};
   const properties = { ...polygonOptions };
@@ -1069,8 +1077,15 @@ async function main() {
           id: 'route-line',
           type: 'line',
           source: 'route-src',
-          paint: { 'line-color': '#d93d36', 'line-width': 4, 'line-opacity': 0.92 }
+          paint: routeLinePaint()
         });
+        map.on('click', 'route-line', (e) => {
+          const feature = e.features?.[0];
+          const popupContent = createPopupContent(feature?.properties || {});
+          if (!popupContent) return;
+          new maplibregl.Popup({ offset: 12 }).setLngLat(e.lngLat).setDOMContent(popupContent).addTo(map);
+        });
+        bindPointer(map, 'route-line');
         allCoords.push(...getGeoJSONCoords(routeData));
       }
 

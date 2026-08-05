@@ -341,6 +341,20 @@ Varias rutas:
 - `MultiLineString`
 - URL a un GeoJSON
 
+Cada feature puede definir su propio estilo de línea en `properties`:
+
+- Color: `strokeColor`, `stroke`, `lineColor`, `color`
+- Grosor: `strokeWidth`, `lineWidth`, `width`
+- Opacidad: `strokeOpacity`, `lineOpacity`
+
+También puede definir un minidiálogo clicable usando las mismas propiedades de popup que los marcadores:
+
+- Texto: `title`, `label`, `text`, `name`, `message`, `mensaje`, `detail`, `details`, `detalle`
+- HTML: `description`, `popup`, `html`
+- Enlace: `url`, `href`, `linkLabel`, `link_label`
+
+Nota de seguridad: `popup`, `html` y `description` se insertan como HTML. Usarlos solo con contenido generado por una fuente de confianza o sanitizado en backend.
+
 Ejemplo inline:
 
 ```json
@@ -350,7 +364,14 @@ Ejemplo inline:
     "features": [
       {
         "type": "Feature",
-        "properties": {"name": "Ruta A"},
+        "properties": {
+          "name": "Ruta A",
+          "message": "Tramo principal",
+          "url": "/admin/routes/a/",
+          "linkLabel": "Abrir ruta",
+          "strokeColor": "#0f766e",
+          "strokeWidth": 5
+        },
         "geometry": {
           "type": "LineString",
           "coordinates": [[-4.72, 41.65], [-4.70, 41.66]]
@@ -358,7 +379,12 @@ Ejemplo inline:
       },
       {
         "type": "Feature",
-        "properties": {"name": "Ruta B"},
+        "properties": {
+          "name": "Ruta B",
+          "detail": "Ruta secundaria",
+          "lineColor": "#d93d36",
+          "lineOpacity": 0.75
+        },
         "geometry": {
           "type": "LineString",
           "coordinates": [[-4.69, 41.64], [-4.66, 41.69]]
