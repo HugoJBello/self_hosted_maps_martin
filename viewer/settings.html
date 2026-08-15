@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Configuracion - Martin Maps Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260603-settings" />
+</head>
+<body class="settings-page">
+  <main class="settings-shell">
+    <header class="settings-header">
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Configuracion</h1>
+          <p>Mapas locales, busqueda offline e indices</p>
+        </div>
+      </div>
+      <nav class="settings-actions" aria-label="Navegacion">
+        <a id="viewerRouteButton" class="icon-button" href="./" title="Volver al visor" aria-label="Volver al visor">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h12"/></svg>
+        </a>
+        <a id="searchRouteButton" class="icon-button" href="./search" title="Buscar" aria-label="Buscar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/></svg>
+        </a>
+      </nav>
+    </header>
+
+    <section class="settings-grid">
+      <article class="settings-card">
+        <div>
+          <div class="section-title">Indice de busqueda offline</div>
+          <p>Selecciona un mapa y un perfil para construir o refrescar el indice local. La busqueda no indexa mapas automaticamente.</p>
+        </div>
+
+        <div class="settings-note">
+          <strong>Control manual</strong>
+          <span>Los indices viven en memoria del visor. Despues de reiniciar el contenedor hay que volver a indexar los mapas que quieras buscar. En mapas grandes, si aparece un error temporal de estado, la UI reintentara sin detener el seguimiento.</span>
+        </div>
+
+        <div class="settings-form">
+          <label for="sourceSelect">Mapa</label>
+          <select id="sourceSelect"></select>
+
+          <label for="profileSelect">Precision</label>
+          <select id="profileSelect"></select>
+
+          <label class="switch-row settings-force-row">
+            <input id="forceToggle" type="checkbox" checked />
+            <span>Reindexar aunque ya exista</span>
+          </label>
+
+          <button id="indexButton" class="primary-action" type="button">Indexar mapa</button>
+        </div>
+
+        <div id="settingsAlert" class="settings-alert" role="status"></div>
+        <div class="progress-track" aria-label="Progreso de indexado">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </article>
+
+      <article class="settings-card">
+        <div class="section-title">Estado</div>
+        <dl class="settings-stats">
+          <div>
+            <dt>Fuente</dt>
+            <dd id="statSource">-</dd>
+          </div>
+          <div>
+            <dt>Perfil</dt>
+            <dd id="statProfile">-</dd>
+          </div>
+          <div>
+            <dt>Elementos</dt>
+            <dd id="statIndexed">0</dd>
+          </div>
+          <div>
+            <dt>Tiles</dt>
+            <dd id="statTiles">0</dd>
+          </div>
+          <div>
+            <dt>Actualizado</dt>
+            <dd id="statBuiltAt">-</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="settings-card settings-card-wide">
+        <div class="section-title">Perfil seleccionado</div>
+        <div id="profileDetails" class="profile-details"></div>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/settings.js?v=20260603-settings"></script>
+</body>
+</html>

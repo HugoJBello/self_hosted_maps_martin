@@ -55,6 +55,8 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 | --- | --- |
 | `/` | UI principal. |
 | `/maps/` | Alias compatible con despliegues que publican el visor bajo `/maps/`. |
+| `/search` y `/maps/search` | Pantalla de busqueda por texto sobre el mapa activo. Usa un indice offline local preparado desde Settings. |
+| `/settings` y `/maps/settings` | Configuracion del visor e indexado manual de busqueda por mapa/perfil. |
 | `/healthz` | Healthcheck JSON del visor. |
 | `/api/catalog` y `/maps/api/catalog` | Proxy interno del catalogo Martin usado por el selector de mapas. |
 | `/api/tilejson/{source}` y `/maps/api/tilejson/{source}` | Proxy interno de TileJSON. Reescribe `tiles` a rutas relativas `/mapas/tiles/...` para evitar mixed content. |
@@ -62,6 +64,80 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 | `/api/session/{id}` y `/maps/api/session/{id}` | Lee, reemplaza por `PATCH` o elimina por `DELETE` una sesion temporal. |
 | `/assets/*` y `/maps/assets/*` | CSS y JS propios. |
 | `/vendor/maplibre-gl/*` y `/maps/vendor/maplibre-gl/*` | Assets locales de MapLibre. |
+
+## Busqueda Offline e Indexado
+
+La pantalla `/search` permite buscar por texto en el mapa activo, pero no construye indices automaticamente. Esto es intencionado: si se anade un mapa grande, una busqueda normal no debe bloquear el despliegue ni iniciar un proceso largo sin que el usuario lo vea.
+
+El flujo esperado es:
+
+1. Abrir `/maps/settings?source={source}`.
+2. Elegir el mapa y el perfil de precision.
+3. Pulsar `Indexar mapa`.
+4. Esperar el progreso en la UI.
+5. Volver a `/maps/search?source={source}` y buscar.
+
+Los indices se guardan en memoria dentro de `map-viewer`. Si el contenedor se reinicia, se pierden. Para produccion con mapas muy grandes o multiples replicas, el siguiente paso natural es persistirlos en SQLite/Redis/disco manteniendo los mismos endpoints.
+
+Durante indexados grandes, un proxy intermedio puede devolver temporalmente `502`, `503` o `504` en alguna consulta de estado aunque el job siga vivo. La UI de Settings trata esos estados como transitorios y reintenta el polling. Si el job falla de verdad, el endpoint de estado devuelve `status=error` con el mensaje de error.
+
+### Perfiles de Indexado
+
+Los perfiles estan definidos en `viewer/server.js` en `SEARCH_INDEX_PROFILES`.
+
+| Perfil | Uso |
+| --- | --- |
+| `fast` | Indexado corto: poblaciones, carreteras principales, POIs basicos y nombres de agua. |
+| `streets` | Perfil por defecto: equilibrio entre tiempo y cobertura, incluyendo calles urbanas cerca de nucleos de poblacion. |
+| `detailed` | Mas cobertura de calles/POIs/numeros. Puede tardar mas y usar mas memoria en mapas grandes. |
+
+La busqueda normal usa `profile` si se pasa en la URL. Si no se pasa `profile`, reutiliza cualquier indice ya preparado para esa fuente, prefiriendo `streets`. Si no hay ningun indice preparado para esa fuente, `/api/search` devuelve `409` con `code=INDEX_NOT_READY` y la UI muestra un enlace a Settings.
+
+Existe una valvula explicita para desarrollo: `MAP_SEARCH_AUTO_INDEX=1` permite que `/api/search` construya el indice al vuelo. Por defecto esta desactivada y no debe activarse en mapas enormes salvo que se acepte ese coste.
+
+### Endpoints de Busqueda
+
+| Metodo | Ruta | Uso |
+| --- | --- | --- |
+| `GET` | `/maps/api/search?q={texto}&source={source}&profile={profile}` | Busca en un indice ya preparado. Devuelve `409 INDEX_NOT_READY` si no existe. |
+| `GET` | `/maps/api/search/settings` | Devuelve fuentes disponibles y perfiles de indexado. |
+| `GET` | `/maps/api/search/index?source={source}&profile={profile}` | Estado del indice y del ultimo job para ese mapa/perfil. |
+| `POST` | `/maps/api/search/index` | Lanza indexado o reindexado manual. Body JSON: `source`, `profile`, `force`. |
+
+Ejemplo de indexado manual por API:
+
+```bash
+curl -X POST http://localhost:48081/maps/api/search/index \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"castilla_y_leon","profile":"streets","force":true}'
+```
+
+Respuesta de progreso:
+
+```json
+{
+  "job": {
+    "source": "castilla_y_leon",
+    "profile": "streets",
+    "status": "running",
+    "message": "Indexando transportation_name z14",
+    "progress": 42,
+    "scannedTiles": 11000,
+    "indexed": 28000
+  }
+}
+```
+
+### Como ampliar para mapas nuevos
+
+Para mapas generados con otro esquema vectorial, revisar:
+
+- `SEARCH_INDEX_PROFILES`: capas, zooms, limites y `aroundPlaces`.
+- `SEARCH_NAME_FIELDS`: propiedades usadas como texto buscable.
+- `searchDetail()`: campos mostrados en la lista de resultados.
+- `featureCenter()`: calculo del centro de puntos, lineas y poligonos.
+
+El perfil `aroundPlaces` depende de que exista una capa `place` con coordenadas de nucleos de poblacion. Si un mapa no tiene `place`, el paso se omite y conviene anadir un perfil adaptado a sus capas reales.
 
 ### Embed en iframe
 
@@ -191,7 +267,7 @@ En los query params `points`, `route` y `polygon` el orden es `lat,lon`.
 
 En JSON y GeoJSON el orden es el estándar GeoJSON: `[lon, lat]`.
 
-La barra superior muestra los mapas disponibles leyendo `/maps/api/catalog` o `/api/catalog`. Al seleccionar un mapa se actualiza el parametro `source` de la URL. El panel lateral de datos arranca plegado por defecto y se abre desde el boton de panel de la barra superior; dentro queda el campo manual `Fuente Martin`, tambien oculto hasta usar el boton de fuente avanzada.
+La barra superior muestra los mapas disponibles leyendo `/maps/api/catalog` o `/api/catalog`. Al seleccionar un mapa se actualiza el parametro `source` de la URL. El boton de busqueda abre `/search` o `/maps/search` conservando la fuente activa. El panel lateral de datos arranca plegado por defecto y se abre desde el boton de panel de la barra superior; dentro queda el campo manual `Fuente Martin`, tambien oculto hasta usar el boton de fuente avanzada.
 
 ## Puntos
 
