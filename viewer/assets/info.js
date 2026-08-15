@@ -16,12 +16,14 @@ const els = {
   viewerRouteButton: document.getElementById('viewerRouteButton'),
   searchRouteButton: document.getElementById('searchRouteButton'),
   settingsRouteButton: document.getElementById('settingsRouteButton'),
-  clickModeButton: document.getElementById('clickModeButton'),
-  coordModeButton: document.getElementById('coordModeButton'),
+  openCoordDialogButton: document.getElementById('openCoordDialogButton'),
+  closeCoordDialogButton: document.getElementById('closeCoordDialogButton'),
+  coordDialog: document.getElementById('coordDialog'),
   coordForm: document.getElementById('coordForm'),
   coordInput: document.getElementById('coordInput'),
   latInput: document.getElementById('latInput'),
   lonInput: document.getElementById('lonInput'),
+  coordDialogError: document.getElementById('coordDialogError'),
   infoStatus: document.getElementById('infoStatus'),
   infoError: document.getElementById('infoError'),
   infoCard: document.getElementById('infoCard')
@@ -30,7 +32,6 @@ const els = {
 const state = {
   map: null,
   sourceId: DEFAULT_SOURCE,
-  mode: 'click',
   marker: null
 };
 
@@ -69,18 +70,19 @@ function setError(message) {
   els.infoError.textContent = message || '';
 }
 
+function setDialogError(message) {
+  els.coordDialogError.hidden = !message;
+  els.coordDialogError.textContent = message || '';
+}
+
 function formatCoord(value) {
   return Number(value).toFixed(6);
 }
 
-function setMode(mode) {
-  state.mode = mode;
-  els.clickModeButton.classList.toggle('is-active', mode === 'click');
-  els.coordModeButton.classList.toggle('is-active', mode === 'coord');
+function openCoordDialog() {
+  setDialogError('');
+  els.coordDialog.showModal();
   els.coordInput.focus();
-  setStatus(mode === 'click'
-    ? 'Modo click activo: selecciona un punto del mapa.'
-    : 'Introduce una coordenada y pulsa Ir.');
 }
 
 async function loadSourceCatalog() {
@@ -356,15 +358,19 @@ async function inspectPoint(coord, options = {}) {
 
 function wireEvents() {
   els.sourceSelect.addEventListener('change', () => navigateToSource(els.sourceSelect.value));
-  els.clickModeButton.addEventListener('click', () => setMode('click'));
-  els.coordModeButton.addEventListener('click', () => setMode('coord'));
+  els.openCoordDialogButton.addEventListener('click', openCoordDialog);
+  els.closeCoordDialogButton.addEventListener('click', () => els.coordDialog.close());
+  els.coordDialog.addEventListener('click', event => {
+    if (event.target === els.coordDialog) els.coordDialog.close();
+  });
   els.coordForm.addEventListener('submit', event => {
     event.preventDefault();
-    setMode('coord');
     try {
-      inspectPoint(parseCoordinateInput()).catch(error => setError(error.message || String(error)));
+      inspectPoint(parseCoordinateInput())
+        .then(() => els.coordDialog.close())
+        .catch(error => setDialogError(error.message || String(error)));
     } catch (error) {
-      setError(error.message || String(error));
+      setDialogError(error.message || String(error));
     }
   });
 }
@@ -394,10 +400,9 @@ async function main() {
     state.map.on('load', () => {
       if (bounds) fitToBoundsArray(state.map, bounds, 9, 24);
       els.sourceSummary.textContent = `${state.sourceId} listo`;
-      setStatus('Modo click activo: selecciona un punto del mapa.');
+      setStatus('Clica un punto del mapa para consultar informacion cercana.');
     });
     state.map.on('click', event => {
-      if (state.mode !== 'click') return;
       inspectPoint({ lat: event.lngLat.lat, lon: event.lngLat.lng, format: 'Click mapa' }, { fly: false })
         .catch(error => setError(error.message || String(error)));
     });

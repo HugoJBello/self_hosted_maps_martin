@@ -419,32 +419,47 @@ body.settings-page {
 .info-panel {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 10px;
   padding: 14px 16px 16px;
   overflow: hidden;
   background: var(--surface-solid);
 }
 
-.mode-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.info-panel-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
-.mode-tabs button {
-  min-height: 40px;
+.coord-dialog {
+  width: min(560px, calc(100vw - 24px));
   border: 1px solid var(--line);
   border-radius: 8px;
+  padding: 0;
   background: #fff;
   color: var(--text);
-  font-weight: 800;
+  box-shadow: var(--shadow);
 }
 
-.mode-tabs button.is-active {
-  border-color: rgba(18, 108, 92, 0.4);
-  background: rgba(18, 108, 92, 0.1);
-  color: var(--accent-strong);
+.coord-dialog::backdrop {
+  background: rgba(24, 33, 31, 0.36);
+  backdrop-filter: blur(2px);
+}
+
+.coord-dialog .coord-form {
+  padding: 14px;
+}
+
+.coord-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coord-dialog-header h2 {
+  margin: 0;
+  font-size: 16px;
 }
 
 .coord-form {
@@ -1101,8 +1116,7 @@ body.settings-page {
   }
 
   .coord-form input,
-  .coord-input-row button,
-  .mode-tabs button {
+  .coord-input-row button {
     min-height: 36px;
     height: 36px;
     font-size: 12px;

@@ -43,12 +43,29 @@
     </section>
 
     <section class="info-panel" aria-label="Consulta de coordenadas">
-      <div class="mode-tabs" role="tablist" aria-label="Modo de consulta">
-        <button id="clickModeButton" type="button" class="is-active">Clicar mapa</button>
-        <button id="coordModeButton" type="button">Pegar coordenada</button>
+      <div class="info-panel-actions">
+        <button id="openCoordDialogButton" class="primary-action" type="button">Introducir coordenada</button>
       </div>
 
-      <form id="coordForm" class="coord-form">
+      <div id="infoStatus" class="status-box" role="status">Clica un punto del mapa para consultar informacion cercana.</div>
+      <div id="infoError" class="error-box" role="alert" hidden></div>
+      <article id="infoCard" class="point-info-card" aria-live="polite">
+        <div class="empty-state">Sin punto seleccionado.</div>
+      </article>
+    </section>
+
+    <dialog id="coordDialog" class="coord-dialog">
+      <form id="coordForm" class="coord-form" method="dialog">
+        <div class="coord-dialog-header">
+          <div>
+            <h2>Introducir coordenada</h2>
+            <p>Usa decimal, DMS, UTM basico o EPSG:3857.</p>
+          </div>
+          <button id="closeCoordDialogButton" class="icon-button" type="button" title="Cerrar" aria-label="Cerrar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
         <label for="coordInput">Coordenada</label>
         <div class="coord-input-row">
           <input id="coordInput" type="text" autocomplete="off" spellcheck="false" placeholder="41.6521, -4.7286 - N 41 39 07 W 4 43 42 - 30T 356000 4612000" />
@@ -58,14 +75,9 @@
           <input id="latInput" type="text" inputmode="decimal" placeholder="Latitud" aria-label="Latitud" />
           <input id="lonInput" type="text" inputmode="decimal" placeholder="Longitud" aria-label="Longitud" />
         </div>
+        <div id="coordDialogError" class="error-box" role="alert" hidden></div>
       </form>
-
-      <div id="infoStatus" class="status-box" role="status">Clica un punto del mapa o introduce coordenadas para consultar informacion cercana.</div>
-      <div id="infoError" class="error-box" role="alert" hidden></div>
-      <article id="infoCard" class="point-info-card" aria-live="polite">
-        <div class="empty-state">Sin punto seleccionado.</div>
-      </article>
-    </section>
+    </dialog>
   </main>
 
   <script src="./vendor/maplibre-gl/maplibre-gl.js"></script>

@@ -85,7 +85,7 @@ En `/search`, el usuario puede elegir el maximo de resultados que solicita al in
 La pantalla `/info` permite seleccionar un punto de dos formas:
 
 1. Modo `Clicar mapa`: el usuario clica sobre el mapa y se marca el punto.
-2. Modo `Pegar coordenada`: el usuario introduce coordenadas y la UI vuela al punto marcado.
+2. Boton `Introducir coordenada`: abre un modal para pegar coordenadas; si son validas, la UI vuela al punto marcado.
 
 La coordenada se normaliza a WGS84 (`lat`, `lon`) y se consulta `/maps/api/point-info`. El panel muestra latitud, longitud, formato detectado, radio de consulta, indice reutilizado si existe y una lista de datos cercanos. La consulta combina datos presentes en los tiles vectoriales cercanos con el indice offline disponible del mapa, si lo hay.
 
