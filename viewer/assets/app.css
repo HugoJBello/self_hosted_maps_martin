@@ -424,6 +424,13 @@ body.settings-page {
   gap: 8px;
 }
 
+.search-options-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 140px) auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .search-input-row input {
   min-width: 0;
   height: 42px;
@@ -434,13 +441,52 @@ body.settings-page {
   color: var(--text);
 }
 
-.search-input-row button {
+.search-options-row select {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  padding: 0 10px;
+  font: inherit;
+}
+
+.search-input-row button,
+.search-options-row button,
+.results-pager button {
   min-height: 42px;
   border-radius: 8px;
   padding: 0 16px;
   background: var(--accent);
   color: #fff;
   font-weight: 800;
+}
+
+.search-options-row button:disabled,
+.results-pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.results-pager {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.results-pager span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.results-pager button {
+  min-height: 36px;
+  background: #21302d;
+  font-size: 13px;
 }
 
 .results-list {
@@ -468,15 +514,40 @@ body.settings-page {
   text-align: left;
 }
 
+.result-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.result-map-link {
+  min-width: 86px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #21302d;
+  color: #fff;
+  padding: 0 10px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .result-item:hover,
-.result-item:focus-visible {
+.result-item:focus-visible,
+.result-map-link:hover,
+.result-map-link:focus-visible {
   border-color: rgba(18, 108, 92, 0.45);
   outline: none;
   box-shadow: 0 0 0 3px rgba(18, 108, 92, 0.12);
 }
 
 .result-title,
-.result-detail {
+.result-detail,
+.result-meta {
   max-width: 100%;
   overflow-wrap: anywhere;
 }
@@ -489,6 +560,12 @@ body.settings-page {
 .result-detail {
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.35;
+}
+
+.result-meta {
+  color: #53615d;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -710,15 +787,122 @@ body.settings-page {
   }
 
   .search-shell {
-    grid-template-rows: minmax(300px, 44vh) minmax(0, 1fr);
+    grid-template-rows: minmax(320px, 45vh) minmax(0, 1fr);
+  }
+
+  .search-map-stage {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .search-map-stage .map-canvas {
+    position: relative;
+    inset: auto;
+    grid-row: 2;
+    min-height: 0;
   }
 
   .search-topbar {
+    position: relative;
+    inset: auto;
+    grid-row: 1;
+    min-height: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 8px 10px;
     flex-direction: column;
+    gap: 8px;
+    z-index: 2;
+  }
+
+  .search-topbar .brand-block {
+    width: 100%;
+  }
+
+  .search-topbar p {
+    margin-top: 1px;
   }
 
   .search-panel {
-    padding: 12px 10px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .search-form {
+    gap: 6px;
+  }
+
+  .search-input-row {
+    grid-template-columns: minmax(0, 1fr) minmax(76px, auto);
+  }
+
+  .search-input-row input,
+  .search-input-row button {
+    min-height: 38px;
+    height: 38px;
+  }
+
+  .search-input-row button,
+  .search-options-row button,
+  .results-pager button {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .search-options-row {
+    grid-template-columns: auto minmax(68px, 86px) minmax(112px, auto);
+    gap: 6px;
+  }
+
+  .search-options-row select,
+  .search-options-row button {
+    min-height: 34px;
+  }
+
+  .search-options-row button {
+    white-space: normal;
+    line-height: 1.1;
+  }
+
+  .results-pager {
+    min-height: 32px;
+    grid-template-columns: minmax(74px, auto) minmax(0, 1fr) minmax(74px, auto);
+    gap: 6px;
+  }
+
+  .results-pager span {
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .results-pager button {
+    min-height: 32px;
+  }
+
+  .result-item {
+    min-height: 50px;
+    padding: 8px 10px;
+  }
+
+  .result-map-link {
+    min-width: 72px;
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .result-title {
+    font-size: 13px;
+  }
+
+  .result-detail,
+  .result-meta {
+    font-size: 11px;
   }
 
   .settings-shell {

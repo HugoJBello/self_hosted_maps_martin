@@ -46,10 +46,26 @@
           <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Nombre, calle o lugar" />
           <button id="searchButton" type="submit">Buscar</button>
         </div>
+        <div class="search-options-row">
+          <label for="maxResultsSelect">Maximo</label>
+          <select id="maxResultsSelect" aria-label="Maximo de resultados">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="250">250</option>
+            <option value="500">500</option>
+          </select>
+          <button id="showResultsButton" type="button" disabled>Mostrar todo en mapa</button>
+        </div>
       </form>
 
       <div id="searchStatus" class="status-box" role="status">La busqueda usa indices offline preparados desde Configuracion. Si no hay indice, se mostrara un aviso para crearlo.</div>
       <div id="searchError" class="error-box" role="alert" hidden></div>
+      <div class="results-pager" aria-label="Paginacion de resultados">
+        <button id="prevPageButton" type="button" disabled>Anterior</button>
+        <span id="pageSummary">0 resultados</span>
+        <button id="nextPageButton" type="button" disabled>Siguiente</button>
+      </div>
       <ol id="resultsList" class="results-list" aria-label="Resultados de busqueda"></ol>
     </section>
   </main>

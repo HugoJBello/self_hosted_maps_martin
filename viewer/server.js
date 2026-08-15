@@ -12,7 +12,7 @@ const martinBaseInternal = (process.env.MARTIN_BASE_INTERNAL || 'http://martin:3
 const sessionTtlSeconds = Number(process.env.MAP_SESSION_TTL_SECONDS || 3600);
 const sessionMaxBytes = process.env.MAP_SESSION_MAX_BYTES || '5mb';
 const searchMaxTiles = Number(process.env.MAP_SEARCH_MAX_TILES || 26000);
-const searchMaxResults = Number(process.env.MAP_SEARCH_MAX_RESULTS || 80);
+const searchMaxResults = Number(process.env.MAP_SEARCH_MAX_RESULTS || 500);
 const allowSearchAutoIndex = process.env.MAP_SEARCH_AUTO_INDEX === '1';
 const sessions = new Map();
 const searchIndexes = new Map();

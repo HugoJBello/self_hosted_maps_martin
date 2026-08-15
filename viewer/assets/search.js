@@ -40,8 +40,13 @@ const els = {
   settingsRouteButton: document.getElementById('settingsRouteButton'),
   searchForm: document.getElementById('searchForm'),
   searchInput: document.getElementById('searchInput'),
+  maxResultsSelect: document.getElementById('maxResultsSelect'),
+  showResultsButton: document.getElementById('showResultsButton'),
   searchStatus: document.getElementById('searchStatus'),
   searchError: document.getElementById('searchError'),
+  prevPageButton: document.getElementById('prevPageButton'),
+  nextPageButton: document.getElementById('nextPageButton'),
+  pageSummary: document.getElementById('pageSummary'),
   resultsList: document.getElementById('resultsList')
 };
 
@@ -50,7 +55,10 @@ const state = {
   sourceId: DEFAULT_SOURCE,
   profileId: '',
   sourceLayers: DEFAULT_SEARCH_LAYERS,
-  results: []
+  results: [],
+  page: 1,
+  pageSize: 25,
+  resultsOnMap: false
 };
 
 function setStatus(message) {
@@ -88,8 +96,13 @@ function searchApiUrl(query) {
   const url = new URL(`${appPrefix}/api/search`, window.location.origin);
   url.searchParams.set('source', state.sourceId);
   url.searchParams.set('q', query);
+  url.searchParams.set('limit', resultLimit());
   if (state.profileId) url.searchParams.set('profile', state.profileId);
   return url.toString();
+}
+
+function resultLimit() {
+  return Math.max(1, Number(els.maxResultsSelect.value || 100));
 }
 
 function settingsRoute() {
@@ -166,6 +179,21 @@ function resultDetail(properties, sourceLayer) {
   if (properties.type) parts.push(properties.type);
   parts.push(sourceLayer);
   return parts.filter(Boolean).join(' · ');
+}
+
+function formatCoord(coord) {
+  if (!Array.isArray(coord) || coord.length < 2) return '';
+  return `${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}`;
+}
+
+function resultMetadata(result) {
+  return [
+    result.detail,
+    result.layer ? `capa ${result.layer}` : '',
+    result.className ? `tipo ${result.className}` : '',
+    result.rank !== undefined ? `rank ${result.rank}` : '',
+    formatCoord(result.center)
+  ].filter(Boolean);
 }
 
 function geometryCoords(geometry) {
@@ -249,6 +277,85 @@ function setSelection(result) {
   if (source) source.setData(data);
 }
 
+function createResultPopupContent(result) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'marker-popup';
+
+  const title = document.createElement('div');
+  title.className = 'marker-popup-title';
+  title.textContent = result.title || 'Resultado';
+  wrapper.appendChild(title);
+
+  for (const line of resultMetadata(result)) {
+    const detail = document.createElement('div');
+    detail.className = 'marker-popup-detail';
+    detail.textContent = line;
+    wrapper.appendChild(detail);
+  }
+
+  return wrapper;
+}
+
+function resultFeature(result, index) {
+  return {
+    type: 'Feature',
+    properties: {
+      resultIndex: index,
+      title: result.title || '',
+      detail: result.detail || '',
+      layer: result.layer || '',
+      className: result.className || '',
+      rank: result.rank ?? ''
+    },
+    geometry: { type: 'Point', coordinates: result.center }
+  };
+}
+
+function setResultsOnMap(results) {
+  const source = state.map?.getSource('search-results-src');
+  if (!source) return;
+  source.setData({
+    type: 'FeatureCollection',
+    features: results
+      .filter(result => Array.isArray(result.center) && result.center.length >= 2)
+      .map(resultFeature)
+  });
+}
+
+function clearResultsOnMap() {
+  state.resultsOnMap = false;
+  setResultsOnMap([]);
+}
+
+function showResultsOnMap() {
+  if (!state.results.length) return;
+  state.resultsOnMap = true;
+  setResultsOnMap(state.results);
+  fitToCoords(state.map, state.results.map(result => result.center).filter(Boolean), 13, 72);
+}
+
+function openResultPopup(result) {
+  if (!state.map || !Array.isArray(result.center)) return;
+  new maplibregl.Popup({ offset: 12 })
+    .setLngLat(result.center)
+    .setDOMContent(createResultPopupContent(result))
+    .addTo(state.map);
+}
+
+function resultMapUrl(result) {
+  const url = new URL('./', window.location.href);
+  url.searchParams.set('source', state.sourceId);
+  url.searchParams.set('chrome', '0');
+  url.searchParams.set('markers', JSON.stringify([{
+    coord: result.center,
+    title: result.title || 'Resultado',
+    label: result.detail || '',
+    detail: resultMetadata(result).join(' · '),
+    icon: 'pin'
+  }]));
+  return url.toString();
+}
+
 function focusResult(result) {
   setSelection(result);
   const coords = Array.isArray(result.coords) && result.coords.length ? result.coords : [result.center];
@@ -260,19 +367,44 @@ function focusResult(result) {
   state.map.flyTo({ center: result.center, zoom: Math.max(state.map.getZoom(), 15), duration: 350 });
 }
 
-function renderResults(results) {
+function renderPager() {
+  const total = state.results.length;
+  const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
+  state.page = Math.min(Math.max(1, state.page), totalPages);
+  const start = total ? (state.page - 1) * state.pageSize + 1 : 0;
+  const end = Math.min(total, state.page * state.pageSize);
+
+  els.pageSummary.textContent = total
+    ? `${start}-${end} de ${total}`
+    : '0 resultados';
+  els.prevPageButton.disabled = state.page <= 1;
+  els.nextPageButton.disabled = state.page >= totalPages || total === 0;
+}
+
+function renderResults(results, { resetPage = true } = {}) {
   els.resultsList.innerHTML = '';
   state.results = results;
+  if (resetPage) state.page = 1;
+  if (resetPage) state.resultsOnMap = false;
+  els.showResultsButton.disabled = !results.length;
+  if (resetPage) clearResultsOnMap();
 
   if (!results.length) {
     setSelection(null);
+    clearResultsOnMap();
+    renderPager();
     setStatus('Sin resultados en los elementos cargados del mapa.');
     return;
   }
 
   setStatus(`${results.length} resultado${results.length === 1 ? '' : 's'}.`);
 
-  results.forEach((result, index) => {
+  renderPager();
+  const startIndex = (state.page - 1) * state.pageSize;
+  const pageResults = results.slice(startIndex, startIndex + state.pageSize);
+
+  pageResults.forEach((result, pageIndex) => {
+    const index = startIndex + pageIndex;
     const item = document.createElement('li');
     const button = document.createElement('button');
     button.type = 'button';
@@ -287,8 +419,18 @@ function renderResults(results) {
     detail.className = 'result-detail';
     detail.textContent = result.detail;
 
-    button.append(title, detail);
-    item.appendChild(button);
+    const meta = document.createElement('span');
+    meta.className = 'result-meta';
+    meta.textContent = resultMetadata(result).slice(1).join(' · ');
+
+    const mapLink = document.createElement('a');
+    mapLink.className = 'result-map-link';
+    mapLink.href = resultMapUrl(result);
+    mapLink.textContent = 'Ver mapa';
+
+    button.append(title, detail, meta);
+    item.className = 'result-row';
+    item.append(button, mapLink);
     els.resultsList.appendChild(item);
   });
 }
@@ -341,7 +483,22 @@ function wireEvents() {
     const button = event.target.closest('.result-item');
     if (!button) return;
     const result = state.results[Number(button.dataset.resultIndex)];
-    if (result) focusResult(result);
+    if (result) {
+      focusResult(result);
+      openResultPopup(result);
+    }
+  });
+  els.showResultsButton.addEventListener('click', showResultsOnMap);
+  els.prevPageButton.addEventListener('click', () => {
+    state.page -= 1;
+    renderResults(state.results, { resetPage: false });
+  });
+  els.nextPageButton.addEventListener('click', () => {
+    state.page += 1;
+    renderResults(state.results, { resetPage: false });
+  });
+  els.maxResultsSelect.addEventListener('change', () => {
+    if (els.searchInput.value.trim()) runSearch();
   });
 }
 
@@ -393,6 +550,35 @@ async function main() {
       map.addSource('search-selection-src', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
+      });
+      map.addSource('search-results-src', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      map.addLayer({
+        id: 'search-results-points',
+        type: 'circle',
+        source: 'search-results-src',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 12, 6, 16, 9],
+          'circle-color': '#246db8',
+          'circle-opacity': 0.82,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1.5
+        }
+      });
+      map.on('click', 'search-results-points', (event) => {
+        const feature = event.features?.[0];
+        const result = state.results[Number(feature?.properties?.resultIndex)];
+        if (!result) return;
+        focusResult(result);
+        openResultPopup(result);
+      });
+      map.on('mouseenter', 'search-results-points', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'search-results-points', () => {
+        map.getCanvas().style.cursor = '';
       });
       map.addLayer({
         id: 'search-selection-halo',

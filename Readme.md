@@ -77,6 +77,8 @@ El flujo esperado es:
 4. Esperar el progreso en la UI.
 5. Volver a `/maps/search?source={source}` y buscar.
 
+En `/search`, el usuario puede elegir el maximo de resultados que solicita al indice, navegar la lista paginada y pulsar `Mostrar en mapa` para pintar los resultados devueltos como puntos. Al clicar un resultado de la lista o un punto del mapa, el visor centra el lugar y abre un popup con titulo, capa, tipo y coordenadas.
+
 Los indices se guardan en memoria dentro de `map-viewer`. Si el contenedor se reinicia, se pierden. Para produccion con mapas muy grandes o multiples replicas, el siguiente paso natural es persistirlos en SQLite/Redis/disco manteniendo los mismos endpoints.
 
 Durante indexados grandes, un proxy intermedio puede devolver temporalmente `502`, `503` o `504` en alguna consulta de estado aunque el job siga vivo. La UI de Settings trata esos estados como transitorios y reintenta el polling. Si el job falla de verdad, el endpoint de estado devuelve `status=error` con el mensaje de error.
@@ -99,7 +101,7 @@ Existe una valvula explicita para desarrollo: `MAP_SEARCH_AUTO_INDEX=1` permite 
 
 | Metodo | Ruta | Uso |
 | --- | --- | --- |
-| `GET` | `/maps/api/search?q={texto}&source={source}&profile={profile}` | Busca en un indice ya preparado. Devuelve `409 INDEX_NOT_READY` si no existe. |
+| `GET` | `/maps/api/search?q={texto}&source={source}&profile={profile}&limit={n}` | Busca en un indice ya preparado. Devuelve `409 INDEX_NOT_READY` si no existe. |
 | `GET` | `/maps/api/search/settings` | Devuelve fuentes disponibles y perfiles de indexado. |
 | `GET` | `/maps/api/search/index?source={source}&profile={profile}` | Estado del indice y del ultimo job para ese mapa/perfil. |
 | `POST` | `/maps/api/search/index` | Lanza indexado o reindexado manual. Body JSON: `source`, `profile`, `force`. |
