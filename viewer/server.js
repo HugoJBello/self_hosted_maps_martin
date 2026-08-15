@@ -21,8 +21,8 @@ const searchJobs = new Map();
 const SEARCH_INDEX_PROFILES = {
   fast: {
     id: 'fast',
-    label: 'Rapido',
-    description: 'Poblaciones, carreteras principales y POIs basicos. Menos precision, indexado corto.',
+    label: 'Fast',
+    description: 'Places, main roads, and basic POIs. Lower precision, short indexing run.',
     maxTiles: 7000,
     layers: [
       { layer: 'place', zoom: 8, maxTiles: 500 },
@@ -33,8 +33,8 @@ const SEARCH_INDEX_PROFILES = {
   },
   streets: {
     id: 'streets',
-    label: 'Calles',
-    description: 'Equilibrado para buscar ciudades, POIs y calles urbanas cerca de nucleos de poblacion.',
+    label: 'Streets',
+    description: 'Balanced profile for cities, POIs, and urban streets near populated places.',
     maxTiles: 26000,
     layers: [
       { layer: 'place', zoom: 8, maxTiles: 500 },
@@ -47,8 +47,8 @@ const SEARCH_INDEX_PROFILES = {
   },
   detailed: {
     id: 'detailed',
-    label: 'Detallado',
-    description: 'Mas calles urbanas y numeros. Puede tardar mas y usar mas memoria en mapas grandes.',
+    label: 'Detailed',
+    description: 'More urban streets and house numbers. Can take longer and use more memory on large maps.',
     maxTiles: 52000,
     layers: [
       { layer: 'place', zoom: 8, maxTiles: 800 },
@@ -676,7 +676,7 @@ async function buildSearchIndex(source, options = {}) {
 
     updateJob(job, {
       status: 'running',
-      message: `Leyendo ${profile.label}`,
+      message: `Reading ${profile.label}`,
       progress: 2,
       scannedTiles,
       indexed: items.length
@@ -701,7 +701,7 @@ async function buildSearchIndex(source, options = {}) {
         }
         if (job && scannedTiles % 100 === 0) {
           updateJob(job, {
-            message: `Indexando ${config.layer} z${config.zoom}`,
+            message: `Indexing ${config.layer} z${config.zoom}`,
             progress: Math.min(96, Math.round((scannedTiles / Math.min(profile.maxTiles, searchMaxTiles)) * 100)),
             scannedTiles,
             indexed: items.length
@@ -721,7 +721,7 @@ async function buildSearchIndex(source, options = {}) {
     searchIndexes.set(key, index);
     updateJob(job, {
       status: 'complete',
-      message: 'Indice listo',
+      message: 'Index ready',
       progress: 100,
       scannedTiles,
       indexed: items.length,
@@ -733,7 +733,7 @@ async function buildSearchIndex(source, options = {}) {
     if (options.job) {
       updateJob(options.job, {
         status: 'error',
-        message: 'No se pudo indexar',
+        message: 'Indexing failed',
         error: error.message || String(error),
         finishedAt: Date.now()
       });

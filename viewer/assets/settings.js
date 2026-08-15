@@ -75,7 +75,7 @@ function renderStats(payload) {
   const latestLabel = profileLabel(payload?.latestIndex?.profile);
   els.statSource.textContent = payload?.source || selectedSource();
   els.statProfile.textContent = payload?.latestIndex
-    ? `${selectedLabel} · ultimo indice: ${latestLabel}`
+    ? `${selectedLabel} - latest index: ${latestLabel}`
     : selectedLabel;
   els.statIndexed.textContent = String(job?.indexed ?? index?.indexed ?? 0);
   els.statTiles.textContent = String(job?.scannedTiles ?? index?.scannedTiles ?? 0);
@@ -103,11 +103,11 @@ function renderProfileStatusList(payload) {
     if (item.job?.status === 'running' || item.job?.status === 'queued') {
       stateText.textContent = `${item.job.progress || 0}%`;
     } else if (item.index) {
-      stateText.textContent = `${item.index.indexed} elem · ${item.index.scannedTiles} tiles`;
+      stateText.textContent = `${item.index.indexed} items - ${item.index.scannedTiles} tiles`;
     } else if (item.job?.status === 'error') {
       stateText.textContent = 'error';
     } else {
-      stateText.textContent = 'sin indice';
+      stateText.textContent = 'no index';
     }
 
     row.append(name, stateText);
@@ -127,12 +127,12 @@ function renderProfileDetails() {
   description.textContent = profile.description;
   const meta = document.createElement('div');
   meta.className = 'profile-meta';
-  meta.textContent = `${profile.maxTiles} tiles maximos · ${profile.layers.length} pasos`;
+  meta.textContent = `${profile.maxTiles} max tiles - ${profile.layers.length} steps`;
   const list = document.createElement('ol');
   list.className = 'profile-layer-list';
   for (const layer of profile.layers) {
     const item = document.createElement('li');
-    item.textContent = `${layer.layer} · z${layer.zoom} · ${layer.maxTiles} tiles${layer.aroundPlaces ? ' · cerca de poblaciones' : ''}`;
+    item.textContent = `${layer.layer} - z${layer.zoom} - ${layer.maxTiles} tiles${layer.aroundPlaces ? ' - near populated places' : ''}`;
     list.appendChild(item);
   }
   els.profileDetails.append(description, meta, list);
@@ -144,7 +144,7 @@ async function readStatus() {
   url.searchParams.set('profile', selectedProfile());
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
-    const error = new Error(`Estado no disponible: ${response.status}`);
+    const error = new Error(`Status unavailable: ${response.status}`);
     error.status = response.status;
     throw error;
   }
@@ -167,16 +167,16 @@ async function refreshStatus() {
   }
 
   if (payload.job?.status === 'error') {
-    setAlert('error', payload.job.error || 'No se pudo indexar el mapa.');
+    setAlert('error', payload.job.error || 'Could not index the map.');
     return;
   }
 
   if (payload.index) {
-    setAlert('success', `Indice listo: ${payload.index.indexed} elementos indexados.`);
+    setAlert('success', `Index ready: ${payload.index.indexed} indexed items.`);
   } else if (payload.latestIndex) {
-    setAlert('success', `Hay indice listo en ${profileLabel(payload.latestIndex.profile)}: ${payload.latestIndex.indexed} elementos. La busqueda lo reutilizara aunque cambies la precision aqui.`);
+    setAlert('success', `Ready index in ${profileLabel(payload.latestIndex.profile)}: ${payload.latestIndex.indexed} items. Search will reuse it even if you change precision here.`);
   } else {
-    setAlert('info', 'Este mapa aun no tiene ningun indice en memoria.');
+    setAlert('info', 'This map does not have any in-memory index yet.');
   }
 }
 
@@ -185,7 +185,7 @@ function schedulePoll() {
   state.pollTimer = window.setTimeout(() => {
     refreshStatus().catch(error => {
       if (isTransientStatusError(error)) {
-        setAlert('info', `${error.message}. Reintentando sin detener el seguimiento.`);
+        setAlert('info', `${error.message}. Retrying without stopping progress tracking.`);
         schedulePoll();
         return;
       }
@@ -196,7 +196,7 @@ function schedulePoll() {
 
 async function startIndex() {
   els.indexButton.disabled = true;
-  setAlert('info', 'Lanzando indexado...');
+  setAlert('info', 'Starting indexing...');
   setProgress(0);
 
   try {
@@ -210,17 +210,17 @@ async function startIndex() {
       })
     });
     if (!response.ok) {
-      const error = new Error(`No se pudo iniciar: ${response.status}`);
+      const error = new Error(`Could not start: ${response.status}`);
       error.status = response.status;
       throw error;
     }
     const payload = await response.json();
     renderStats(payload);
-    setAlert('info', payload.job ? 'Indexado iniciado.' : 'El indice ya estaba listo.');
+    setAlert('info', payload.job ? 'Indexing started.' : 'The index was already ready.');
     schedulePoll();
   } catch (error) {
     if (isTransientStatusError(error)) {
-      setAlert('info', `${error.message}. Consultando estado por si el indexado ya arranco.`);
+      setAlert('info', `${error.message}. Checking status in case indexing already started.`);
       schedulePoll();
       return;
     }
@@ -275,7 +275,7 @@ function wireEvents() {
 async function main() {
   try {
     const response = await fetch(apiUrl('/api/search/settings'), { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Configuracion no disponible: ${response.status}`);
+    if (!response.ok) throw new Error(`Settings unavailable: ${response.status}`);
     state.settings = await response.json();
     populateControls();
     wireEvents();

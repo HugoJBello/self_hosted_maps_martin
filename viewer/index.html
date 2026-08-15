@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>Martin Maps Viewer</title>
@@ -10,7 +10,7 @@
 </head>
 <body>
   <main class="app-shell" data-chrome="full">
-    <section class="map-stage" aria-label="Mapa">
+    <section class="map-stage" aria-label="Map">
       <div id="map" class="map-canvas"></div>
 
       <div class="topbar" data-chrome-panel>
@@ -18,93 +18,93 @@
           <span class="brand-mark" aria-hidden="true"></span>
           <div>
             <h1>Martin Maps Viewer</h1>
-            <p id="sourceSummary">Preparando mapa local</p>
+            <p id="sourceSummary">Preparing local map</p>
           </div>
         </div>
 
         <div class="topbar-actions">
           <label class="source-picker" for="sourceSelect">
-            <span>Mapa</span>
-            <select id="sourceSelect" aria-label="Seleccionar mapa">
-              <option value="">Cargando mapas</option>
+            <span>Map</span>
+            <select id="sourceSelect" aria-label="Select map">
+              <option value="">Loading maps</option>
             </select>
           </label>
-          <a id="searchRouteButton" class="icon-button" href="./search" title="Buscar en el mapa" aria-label="Buscar en el mapa">
+          <a id="searchRouteButton" class="icon-button" href="./search" title="Search map" aria-label="Search map">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/></svg>
           </a>
-          <a id="infoRouteButton" class="icon-button" href="./info" title="Info de coordenadas" aria-label="Info de coordenadas">
+          <a id="infoRouteButton" class="icon-button" href="./info" title="Coordinate info" aria-label="Coordinate info">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
           </a>
-          <a id="settingsRouteButton" class="icon-button" href="./settings" title="Configuracion" aria-label="Configuracion">
+          <a id="settingsRouteButton" class="icon-button" href="./settings" title="Settings" aria-label="Settings">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.25.6.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05a1.7 1.7 0 0 0-1.55 1z"/></svg>
           </a>
-          <button id="fitButton" class="icon-button" type="button" title="Centrar contenido" aria-label="Centrar contenido">
+          <button id="fitButton" class="icon-button" type="button" title="Fit content" aria-label="Fit content">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M21 16v3a2 2 0 0 1-2 2h-3M8 12h8M12 8v8"/></svg>
           </button>
-          <button id="sourcePanelButton" class="icon-button" type="button" title="Fuente manual" aria-label="Fuente manual">
+          <button id="sourcePanelButton" class="icon-button" type="button" title="Manual source" aria-label="Manual source">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M6 8h12M8 16h8"/></svg>
           </button>
-          <button id="panelButton" class="icon-button" type="button" title="Panel de datos" aria-label="Panel de datos">
+          <button id="panelButton" class="icon-button" type="button" title="Data panel" aria-label="Data panel">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
           </button>
         </div>
       </div>
 
-      <aside id="controlPanel" class="control-panel" data-chrome-panel aria-label="Controles del visor" hidden>
+      <aside id="controlPanel" class="control-panel" data-chrome-panel aria-label="Viewer controls" hidden>
         <div id="sourcePanel" class="panel-section source-panel" hidden>
-          <label for="sourceInput">Fuente Martin manual</label>
+          <label for="sourceInput">Manual Martin source</label>
           <div class="source-row">
             <input id="sourceInput" type="text" autocomplete="off" spellcheck="false" />
-            <button id="sourceButton" type="button">Cargar</button>
+            <button id="sourceButton" type="button">Load</button>
           </div>
         </div>
 
-        <div class="metric-grid" aria-label="Resumen">
+        <div class="metric-grid" aria-label="Summary">
           <div>
             <span id="markerCount">0</span>
-            <small>marcadores</small>
+            <small>markers</small>
           </div>
           <div>
             <span id="routeCount">0</span>
-            <small>rutas</small>
+            <small>routes</small>
           </div>
           <div>
             <span id="polygonCount">0</span>
-            <small>poligonos</small>
+            <small>polygons</small>
           </div>
         </div>
 
         <div class="panel-section">
-          <div class="section-title">Capas</div>
+          <div class="section-title">Layers</div>
           <label class="switch-row">
             <input id="markersToggle" type="checkbox" checked />
-            <span>Marcadores</span>
+            <span>Markers</span>
           </label>
           <label class="switch-row">
             <input id="routesToggle" type="checkbox" checked />
-            <span>Rutas</span>
+            <span>Routes</span>
           </label>
           <label class="switch-row">
             <input id="polygonsToggle" type="checkbox" checked />
-            <span>Poligonos</span>
+            <span>Polygons</span>
           </label>
         </div>
 
         <div class="panel-section">
           <div class="section-title">Embed</div>
           <div class="embed-actions">
-            <button id="compactButton" type="button">Modo compacto</button>
-            <button id="copyEmbedButton" type="button">Copiar iframe</button>
+            <button id="compactButton" type="button">Compact mode</button>
+            <button id="copyEmbedButton" type="button">Copy iframe</button>
           </div>
         </div>
 
-        <div id="status" class="status-box" role="status">Inicializando visor</div>
+        <div id="status" class="status-box" role="status">Initializing viewer</div>
         <div id="error" class="error-box" role="alert" hidden></div>
       </aside>
 
       <div id="compactBadge" class="compact-badge">
         <span id="compactTitle">Martin Maps</span>
-        <button id="showPanelButton" class="icon-button" type="button" title="Mostrar panel" aria-label="Mostrar panel">
+        <button id="showPanelButton" class="icon-button" type="button" title="Show panel" aria-label="Show panel">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
         </button>
       </div>

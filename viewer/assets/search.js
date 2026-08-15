@@ -115,10 +115,10 @@ function setIndexRequiredNotice() {
   els.searchError.hidden = false;
   els.searchError.innerHTML = '';
   const text = document.createElement('span');
-  text.textContent = 'Este mapa aun no tiene indice offline preparado. ';
+  text.textContent = 'This map does not have a prepared offline index yet. ';
   const link = document.createElement('a');
   link.href = settingsRoute();
-  link.textContent = 'Abrir configuracion para indexarlo';
+  link.textContent = 'Open settings to index it';
   els.searchError.append(text, link);
 }
 
@@ -130,7 +130,7 @@ async function loadSourceCatalog() {
     const sources = Object.keys(catalog.tiles || {}).sort((a, b) => a.localeCompare(b));
 
     if (!sources.length) {
-      els.sourceSelect.innerHTML = '<option value="">Sin mapas</option>';
+      els.sourceSelect.innerHTML = '<option value="">No maps</option>';
       els.sourceSelect.disabled = true;
       return;
     }
@@ -191,8 +191,8 @@ function formatCoord(coord) {
 function resultMetadata(result) {
   return [
     result.detail,
-    result.layer ? `capa ${result.layer}` : '',
-    result.className ? `tipo ${result.className}` : '',
+    result.layer ? `layer ${result.layer}` : '',
+    result.className ? `type ${result.className}` : '',
     result.rank !== undefined ? `rank ${result.rank}` : '',
     formatCoord(result.center)
   ].filter(Boolean);
@@ -285,7 +285,7 @@ function createResultPopupContent(result) {
 
   const title = document.createElement('div');
   title.className = 'marker-popup-title';
-  title.textContent = result.title || 'Resultado';
+  title.textContent = result.title || 'Result';
   wrapper.appendChild(title);
 
   for (const line of resultMetadata(result)) {
@@ -350,7 +350,7 @@ function resultMapUrl(result) {
   url.searchParams.set('chrome', '0');
   url.searchParams.set('markers', JSON.stringify([{
     coord: result.center,
-    title: result.title || 'Resultado',
+    title: result.title || 'Result',
     label: result.detail || '',
     detail: resultMetadata(result).join(' · '),
     icon: 'pin'
@@ -377,8 +377,8 @@ function renderPager() {
   const end = Math.min(total, state.page * state.pageSize);
 
   els.pageSummary.textContent = total
-    ? `${start}-${end} de ${total}`
-    : '0 resultados';
+    ? `${start}-${end} of ${total}`
+    : '0 results';
   els.prevPageButton.disabled = state.page <= 1;
   els.nextPageButton.disabled = state.page >= totalPages || total === 0;
 }
@@ -395,11 +395,11 @@ function renderResults(results, { resetPage = true } = {}) {
     setSelection(null);
     clearResultsOnMap();
     renderPager();
-    setStatus('Sin resultados en los elementos cargados del mapa.');
+    setStatus('No results in the loaded map elements.');
     return;
   }
 
-  setStatus(`${results.length} resultado${results.length === 1 ? '' : 's'}.`);
+  setStatus(`${results.length} result${results.length === 1 ? '' : 's'}.`);
 
   renderPager();
   const startIndex = (state.page - 1) * state.pageSize;
@@ -428,7 +428,7 @@ function renderResults(results, { resetPage = true } = {}) {
     const mapLink = document.createElement('a');
     mapLink.className = 'result-map-link';
     mapLink.href = resultMapUrl(result);
-    mapLink.textContent = 'Ver mapa';
+    mapLink.textContent = 'View map';
 
     button.append(title, detail, meta);
     item.className = 'result-row';
@@ -446,17 +446,17 @@ async function runSearch() {
     return;
   }
 
-  setStatus('Buscando en el indice local offline...');
+  setStatus('Searching the local offline index...');
 
   try {
     const response = await fetch(searchApiUrl(query), { cache: 'no-store' });
     if (response.status === 409) {
       setIndexRequiredNotice();
-      setStatus('Indexa este mapa desde configuracion antes de buscar en todo el mapa.');
+      setStatus('Index this map from Settings before searching the whole map.');
       renderResults(collectResults(query));
       return;
     }
-    if (!response.ok) throw new Error(`Busqueda local no disponible: ${response.status}`);
+    if (!response.ok) throw new Error(`Local search is not available: ${response.status}`);
     const payload = await response.json();
     const results = (payload.results || []).map(result => ({
       ...result,
@@ -464,12 +464,12 @@ async function runSearch() {
     }));
     renderResults(results);
     if (results.length) {
-      setStatus(`${results.length} resultado${results.length === 1 ? '' : 's'} en el indice offline (${payload.indexed || 0} elementos).`);
+      setStatus(`${results.length} result${results.length === 1 ? '' : 's'} in the offline index (${payload.indexed || 0} items).`);
       return;
     }
   } catch (error) {
     console.warn(error);
-    setError('No se pudo consultar el indice offline. Usando solo los elementos cargados en pantalla.');
+    setError('Could not query the offline index. Using only the elements loaded on screen.');
   }
 
   renderResults(collectResults(query));
@@ -515,9 +515,9 @@ async function main() {
     wireEvents();
     loadSourceCatalog();
 
-    setStatus(`Leyendo TileJSON de ${state.sourceId}`);
+    setStatus(`Reading TileJSON for ${state.sourceId}`);
     const response = await fetch(tilejsonUrl(params, state.sourceId), { cache: 'no-store' });
-    if (!response.ok) throw new Error(`No se pudo leer TileJSON de "${state.sourceId}": ${response.status}`);
+    if (!response.ok) throw new Error(`Could not read TileJSON for "${state.sourceId}": ${response.status}`);
 
     const tilejson = normalizeTilejson(await response.json());
     const bounds = tilejson.bounds || [-180, -85, 180, 85];
@@ -531,7 +531,7 @@ async function main() {
       ? tilejson.vector_layers.map(layer => layer.id).filter(Boolean)
       : DEFAULT_SEARCH_LAYERS;
 
-    els.sourceSummary.textContent = `Fuente ${state.sourceId} · zoom ${minZoom}-${maxZoom}`;
+    els.sourceSummary.textContent = `Source ${state.sourceId} - zoom ${minZoom}-${maxZoom}`;
 
     const map = new maplibregl.Map({
       container: 'map',
@@ -605,17 +605,17 @@ async function main() {
           'circle-stroke-width': 2
         }
       });
-      setStatus('Escribe un texto para buscar en los elementos cargados del mapa.');
+      setStatus('Enter text to search the loaded map elements.');
     });
 
     map.on('error', (event) => {
       console.error('MapLibre error:', event);
-      setError(event?.error?.message || 'Error desconocido de MapLibre');
+      setError(event?.error?.message || 'Unknown MapLibre error');
     });
   } catch (error) {
     console.error(error);
     setError(error.message || String(error));
-    setStatus('No se pudo cargar la busqueda');
+    setStatus('Could not load search');
   }
 }
 

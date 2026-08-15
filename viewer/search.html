@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Buscar - Martin Maps Viewer</title>
+  <title>Search - Martin Maps Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light" />
   <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
@@ -10,66 +10,66 @@
 </head>
 <body class="search-page">
   <main class="search-shell">
-    <section class="search-map-stage" aria-label="Mapa de resultados">
+    <section class="search-map-stage" aria-label="Results map">
       <div id="map" class="map-canvas"></div>
 
       <div class="topbar search-topbar">
         <div class="brand-block">
           <span class="brand-mark" aria-hidden="true"></span>
           <div>
-            <h1>Buscar en Martin Maps</h1>
-            <p id="sourceSummary">Preparando mapa local</p>
+            <h1>Search Martin Maps</h1>
+            <p id="sourceSummary">Preparing local map</p>
           </div>
         </div>
 
         <div class="topbar-actions">
           <label class="source-picker" for="sourceSelect">
-            <span>Mapa</span>
-            <select id="sourceSelect" aria-label="Seleccionar mapa">
-              <option value="">Cargando mapas</option>
+            <span>Map</span>
+            <select id="sourceSelect" aria-label="Select map">
+              <option value="">Loading maps</option>
             </select>
           </label>
-          <a id="viewerRouteButton" class="icon-button" href="./" title="Volver al visor" aria-label="Volver al visor">
+          <a id="viewerRouteButton" class="icon-button" href="./" title="Back to viewer" aria-label="Back to viewer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h12"/></svg>
           </a>
-          <a id="infoRouteButton" class="icon-button" href="./info" title="Info de coordenadas" aria-label="Info de coordenadas">
+          <a id="infoRouteButton" class="icon-button" href="./info" title="Coordinate info" aria-label="Coordinate info">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
           </a>
-          <a id="settingsRouteButton" class="icon-button" href="./settings" title="Configuracion" aria-label="Configuracion">
+          <a id="settingsRouteButton" class="icon-button" href="./settings" title="Settings" aria-label="Settings">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.25.6.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05a1.7 1.7 0 0 0-1.55 1z"/></svg>
           </a>
         </div>
       </div>
     </section>
 
-    <section class="search-panel" aria-label="Busqueda">
+    <section class="search-panel" aria-label="Search">
       <form id="searchForm" class="search-form">
-        <label for="searchInput">Texto de busqueda</label>
+        <label for="searchInput">Search text</label>
         <div class="search-input-row">
-          <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Nombre, calle o lugar" />
-          <button id="searchButton" type="submit">Buscar</button>
+          <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Name, street, or place" />
+          <button id="searchButton" type="submit">Search</button>
         </div>
         <div class="search-options-row">
-          <label for="maxResultsSelect">Maximo</label>
-          <select id="maxResultsSelect" aria-label="Maximo de resultados">
+          <label for="maxResultsSelect">Maximum</label>
+          <select id="maxResultsSelect" aria-label="Maximum results">
             <option value="25">25</option>
             <option value="50">50</option>
             <option value="100" selected>100</option>
             <option value="250">250</option>
             <option value="500">500</option>
           </select>
-          <button id="showResultsButton" type="button" disabled>Mostrar todo en mapa</button>
+          <button id="showResultsButton" type="button" disabled>Show all on map</button>
         </div>
       </form>
 
-      <div id="searchStatus" class="status-box" role="status">La busqueda usa indices offline preparados desde Configuracion. Si no hay indice, se mostrara un aviso para crearlo.</div>
+      <div id="searchStatus" class="status-box" role="status">Search uses offline indexes prepared from Settings. If no index exists, a setup notice will be shown.</div>
       <div id="searchError" class="error-box" role="alert" hidden></div>
-      <div class="results-pager" aria-label="Paginacion de resultados">
-        <button id="prevPageButton" type="button" disabled>Anterior</button>
-        <span id="pageSummary">0 resultados</span>
-        <button id="nextPageButton" type="button" disabled>Siguiente</button>
+      <div class="results-pager" aria-label="Results pagination">
+        <button id="prevPageButton" type="button" disabled>Previous</button>
+        <span id="pageSummary">0 results</span>
+        <button id="nextPageButton" type="button" disabled>Next</button>
       </div>
-      <ol id="resultsList" class="results-list" aria-label="Resultados de busqueda"></ol>
+      <ol id="resultsList" class="results-list" aria-label="Search results"></ol>
     </section>
   </main>
 

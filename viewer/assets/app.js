@@ -67,7 +67,7 @@ function parseLatLonList(raw) {
     const lat = Number(latStr);
     const lon = Number(lonStr);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      throw new Error(`Coordenada invalida: ${pair}`);
+      throw new Error(`Invalid coordinate: ${pair}`);
     }
     return [lon, lat];
   });
@@ -96,7 +96,7 @@ function parseJsonParam(raw, name) {
   }
 }
 
-function parseLatLon(value, label = 'coordenada') {
+function parseLatLon(value, label = 'coordinate') {
   if (Array.isArray(value) && value.length >= 2) {
     const lon = Number(value[0]);
     const lat = Number(value[1]);
@@ -111,18 +111,18 @@ function parseLatLon(value, label = 'coordenada') {
     if (Number.isFinite(lat) && Number.isFinite(lon)) return [lon, lat];
   }
 
-  throw new Error(`${label} invalida`);
+  throw new Error(`${label} is invalid`);
 }
 
 function normalizeCoordList(value, name) {
   if (!value) return [];
-  if (!Array.isArray(value)) throw new Error(`"${name}" debe ser una lista`);
+  if (!Array.isArray(value)) throw new Error(`"${name}" must be a list`);
   return value.map((item, i) => parseLatLon(item, `${name}[${i}]`));
 }
 
 function normalizeRoutes(value, name) {
   if (!value) return [];
-  if (!Array.isArray(value)) throw new Error(`"${name}" debe ser una lista de rutas`);
+  if (!Array.isArray(value)) throw new Error(`"${name}" must be a route list`);
   return value.map((item, i) => normalizeCoordList(item, `${name}[${i}]`));
 }
 
@@ -132,23 +132,23 @@ function looksLikeRouteList(value) {
 
 function normalizeLineCoords(value, name) {
   const coords = normalizeCoordList(value, name);
-  if (coords.length < 2) throw new Error(`"${name}" debe tener al menos dos coordenadas`);
+  if (coords.length < 2) throw new Error(`"${name}" must have at least two coordinates`);
   return coords;
 }
 
 function normalizeLineGeometry(geometry, name) {
-  if (!geometry || typeof geometry !== 'object') throw new Error(`"${name}" debe ser una geometria GeoJSON`);
+  if (!geometry || typeof geometry !== 'object') throw new Error(`"${name}" must be a GeoJSON geometry`);
   if (geometry.type === 'LineString') {
     return { type: 'LineString', coordinates: normalizeLineCoords(geometry.coordinates, `${name}.coordinates`) };
   }
   if (geometry.type === 'MultiLineString') {
-    if (!Array.isArray(geometry.coordinates)) throw new Error(`"${name}.coordinates" debe ser una lista de rutas`);
+    if (!Array.isArray(geometry.coordinates)) throw new Error(`"${name}.coordinates" must be a route list`);
     return {
       type: 'MultiLineString',
       coordinates: geometry.coordinates.map((line, i) => normalizeLineCoords(line, `${name}.coordinates[${i}]`))
     };
   }
-  throw new Error(`"${name}" debe ser LineString o MultiLineString`);
+  throw new Error(`"${name}" must be LineString or MultiLineString`);
 }
 
 function normalizeRouteGeoJSON(value, name = 'routeGeoJSON') {
@@ -180,19 +180,19 @@ function normalizeRouteGeoJSON(value, name = 'routeGeoJSON') {
       features: [{ type: 'Feature', properties: {}, geometry: normalizeLineGeometry(value, name) }]
     };
   }
-  throw new Error(`"${name}" debe ser FeatureCollection, Feature, LineString, MultiLineString o URL`);
+  throw new Error(`"${name}" must be a FeatureCollection, Feature, LineString, MultiLineString, or URL`);
 }
 
 function normalizeAreaGeometry(geometry, name) {
   if (!geometry || typeof geometry !== 'object') {
-    throw new Error(`"${name}" debe ser una geometria GeoJSON`);
+    throw new Error(`"${name}" must be a GeoJSON geometry`);
   }
 
   if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon' || geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
     return geometry;
   }
 
-  throw new Error(`"${name}" debe ser Polygon, MultiPolygon, LineString o MultiLineString`);
+  throw new Error(`"${name}" must be Polygon, MultiPolygon, LineString, or MultiLineString`);
 }
 
 function normalizeAreaGeoJSON(value, name = 'areaGeoJSON') {
@@ -228,7 +228,7 @@ function normalizeAreaGeoJSON(value, name = 'areaGeoJSON') {
     };
   }
 
-  throw new Error(`"${name}" debe ser FeatureCollection, Feature, Polygon, MultiPolygon, LineString, MultiLineString o URL`);
+  throw new Error(`"${name}" must be a FeatureCollection, Feature, Polygon, MultiPolygon, LineString, MultiLineString, or URL`);
 }
 
 function markerProperties(item) {
@@ -339,13 +339,13 @@ async function readOverlay(params) {
   const overlay = {};
   if (overlayUrl) {
     const response = await fetch(overlayUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`No se pudo leer overlay "${overlayUrl}": ${response.status}`);
+    if (!response.ok) throw new Error(`Could not read overlay "${overlayUrl}": ${response.status}`);
     Object.assign(overlay, await response.json());
   }
   if (inline) {
     if (overlay.markers) {
       const current = normalizeMarkers(overlay.markers, 'overlay.markers');
-      if (typeof current === 'string') throw new Error('No se puede combinar "overlay.markers" por URL con "markers" inline');
+      if (typeof current === 'string') throw new Error('Cannot combine "overlay.markers" by URL with inline "markers"');
       overlay.markers = [...current, ...normalizeMarkers(inline, 'markers')];
     } else {
       overlay.markers = inline;
@@ -365,7 +365,7 @@ async function readSession(params) {
 
   const response = await fetch(sessionUrl(sessionId), { cache: 'no-store' });
   if (!response.ok) {
-    throw new Error(`No se pudo leer sesion "${sessionId}": ${response.status}`);
+    throw new Error(`Could not read session "${sessionId}": ${response.status}`);
   }
 
   return response.json();
@@ -743,7 +743,7 @@ async function loadSourceCatalog(currentSource) {
     const sources = Object.keys(catalog.tiles || {}).sort((a, b) => a.localeCompare(b));
 
     if (!sources.length) {
-      els.sourceSelect.innerHTML = '<option value="">Sin mapas</option>';
+      els.sourceSelect.innerHTML = '<option value="">No maps</option>';
       els.sourceSelect.disabled = true;
       return;
     }
@@ -773,7 +773,7 @@ function copyEmbedCode() {
   url.searchParams.set('embed', '1');
   const code = `<iframe src="${url.toString()}" width="100%" height="520" style="border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
   navigator.clipboard?.writeText(code);
-  setStatus('Codigo iframe copiado al portapapeles');
+  setStatus('Iframe code copied to clipboard');
 }
 
 function prepareControls(params, activeSource = DEFAULT_SOURCE) {
@@ -824,7 +824,7 @@ function prepareControls(params, activeSource = DEFAULT_SOURCE) {
 
 async function main() {
   try {
-    if (!window.maplibregl) throw new Error('MapLibre GL JS no esta disponible');
+    if (!window.maplibregl) throw new Error('MapLibre GL JS is not available');
     const params = new URLSearchParams(window.location.search);
     const session = await readSession(params);
     const sourceId = params.get('source') || session?.source || DEFAULT_SOURCE;
@@ -837,19 +837,19 @@ async function main() {
       overlayFromGeoJSON(session?.geojson, session?.options)
     );
     const sourceTilejsonUrl = tilejsonUrl(params, sourceId);
-    setStatus(`Leyendo TileJSON de ${sourceId}`);
+    setStatus(`Reading TileJSON for ${sourceId}`);
 
     const r = await fetch(sourceTilejsonUrl, { cache: 'no-store' });
-    if (!r.ok) throw new Error(`No se pudo leer TileJSON de "${sourceId}": ${r.status}`);
+    if (!r.ok) throw new Error(`Could not read TileJSON for "${sourceId}": ${r.status}`);
     const tilejson = normalizeTilejson(await r.json());
     const bounds = tilejson.bounds || [-180, -85, 180, 85];
     const minZoom = tilejson.minzoom ?? 0;
     const maxZoom = tilejson.maxzoom ?? 14;
     if (!Array.isArray(tilejson.tiles) || !tilejson.tiles.length) {
-      throw new Error(`TileJSON invalido para "${sourceId}": no contiene "tiles"`);
+      throw new Error(`Invalid TileJSON for "${sourceId}": missing "tiles"`);
     }
 
-    els.sourceSummary.textContent = `Fuente ${sourceId} · zoom ${minZoom}-${maxZoom}`;
+    els.sourceSummary.textContent = `Source ${sourceId} - zoom ${minZoom}-${maxZoom}`;
     els.compactTitle.textContent = sourceId;
     state.sourceBounds = bounds;
 
@@ -877,7 +877,7 @@ async function main() {
       routeFeatures.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route } });
     }
     routes.forEach((coords, i) => {
-      if (coords.length < 2) throw new Error(`"overlay.routes[${i}]" debe tener al menos dos coordenadas`);
+      if (coords.length < 2) throw new Error(`"overlay.routes[${i}]" must have at least two coordinates`);
       routeFeatures.push({ type: 'Feature', properties: { index: i + 1 }, geometry: { type: 'LineString', coordinates: coords } });
     });
 
@@ -885,7 +885,7 @@ async function main() {
     const routeGeoJSON = normalizeRouteGeoJSON(routeGeoJSONValue, 'overlay.routeGeoJSON');
     let routeData = null;
     if (routeGeoJSON && typeof routeGeoJSON === 'string') {
-      if (routeFeatures.length) throw new Error('No se puede combinar "overlay.routeGeoJSON" por URL con "route" u "overlay.routes"');
+      if (routeFeatures.length) throw new Error('Cannot combine "overlay.routeGeoJSON" by URL with "route" or "overlay.routes"');
       routeData = routeGeoJSON;
     } else {
       const features = [...routeFeatures, ...(routeGeoJSON?.features || [])];
@@ -902,7 +902,7 @@ async function main() {
     const markerList = [];
     let markerData = null;
     if (typeof overlay.markers === 'string') {
-      if (pointMarkers.length) throw new Error('No se puede combinar "overlay.markers" por URL con "points" etiquetados');
+      if (pointMarkers.length) throw new Error('Cannot combine "overlay.markers" by URL with labeled "points"');
       markerData = overlay.markers;
     } else if (overlay.markers?.type === 'FeatureCollection') {
       const overlayFeatureCollection = normalizeFeatureCollection(overlay.markers, 'overlay.markers');
@@ -1015,17 +1015,17 @@ async function main() {
       state.contentCoords = allCoords;
       if (allCoords.length) fitToCoords(map, allCoords, 13);
       else if (routeBounds || markerBounds) fitToBoundsArray(map, routeBounds || markerBounds, 13);
-      setStatus(`Mapa listo. Fuente ${sourceId}`);
+      setStatus(`Map ready. Source ${sourceId}`);
     });
 
     map.on('error', (e) => {
       console.error('MapLibre error:', e);
-      setError(e?.error?.message || 'Error desconocido de MapLibre');
+      setError(e?.error?.message || 'Unknown MapLibre error');
     });
   } catch (err) {
     console.error(err);
     setError(err.message || String(err));
-    setStatus('No se pudo cargar el mapa');
+    setStatus('Could not load the map');
   }
 }
 

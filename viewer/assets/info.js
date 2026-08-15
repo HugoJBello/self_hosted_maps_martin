@@ -93,7 +93,7 @@ async function loadSourceCatalog() {
     const sources = Object.keys(catalog.tiles || {}).sort((a, b) => a.localeCompare(b));
 
     if (!sources.length) {
-      els.sourceSelect.innerHTML = '<option value="">Sin mapas</option>';
+      els.sourceSelect.innerHTML = '<option value="">No maps</option>';
       els.sourceSelect.disabled = true;
       return;
     }
@@ -249,14 +249,14 @@ function parseCoordinateInput() {
   const lat = decimal(els.latInput.value);
   const lon = decimal(els.lonInput.value);
   if (els.latInput.value.trim() || els.lonInput.value.trim()) {
-    if (!validLatLon(lat, lon)) throw new Error('Latitud o longitud invalida.');
+    if (!validLatLon(lat, lon)) throw new Error('Invalid latitude or longitude.');
     return { lat, lon, format: 'Decimal' };
   }
 
   const raw = els.coordInput.value.trim();
-  if (!raw) throw new Error('Introduce una coordenada.');
+  if (!raw) throw new Error('Enter a coordinate.');
   const parsed = parseUtm(raw) || parseMercator(raw) || parseDmsText(raw) || parseDecimalPair(raw);
-  if (!parsed) throw new Error('Formato de coordenada no reconocido.');
+  if (!parsed) throw new Error('Coordinate format not recognized.');
   return parsed;
 }
 
@@ -284,7 +284,7 @@ function renderInfo(payload, format) {
   const header = document.createElement('div');
   header.className = 'point-info-header';
   const title = document.createElement('h2');
-  title.textContent = 'Punto seleccionado';
+  title.textContent = 'Selected point';
   const coords = document.createElement('p');
   coords.textContent = `${formatCoord(payload.coord.lat)}, ${formatCoord(payload.coord.lon)} - WGS84`;
   header.append(title, coords);
@@ -292,11 +292,11 @@ function renderInfo(payload, format) {
   const grid = document.createElement('dl');
   grid.className = 'point-info-grid';
   for (const [label, value] of [
-    ['Latitud', formatCoord(payload.coord.lat)],
-    ['Longitud', formatCoord(payload.coord.lon)],
-    ['Formato', format],
-    ['Radio', `${payload.radiusMeters} m`],
-    ['Indice', payload.indexProfile || 'sin indice']
+    ['Latitude', formatCoord(payload.coord.lat)],
+    ['Longitude', formatCoord(payload.coord.lon)],
+    ['Format', format],
+    ['Radius', `${payload.radiusMeters} m`],
+    ['Index', payload.indexProfile || 'no index']
   ]) {
     const item = document.createElement('div');
     const dt = document.createElement('dt');
@@ -311,12 +311,12 @@ function renderInfo(payload, format) {
   list.className = 'nearby-list';
   const listTitle = document.createElement('div');
   listTitle.className = 'section-title';
-  listTitle.textContent = 'Datos cercanos';
+  listTitle.textContent = 'Nearby data';
   list.appendChild(listTitle);
 
   if (!payload.features.length) {
     const empty = document.createElement('p');
-    empty.textContent = 'No se encontraron elementos cercanos en los tiles consultados.';
+    empty.textContent = 'No nearby elements were found in the queried tiles.';
     list.appendChild(empty);
   } else {
     for (const feature of payload.features) {
@@ -329,7 +329,7 @@ function renderInfo(payload, format) {
         `${feature.distanceMeters} m`,
         feature.layer,
         feature.className || feature.type || '',
-        feature.source === 'index' ? 'indice' : 'tile'
+        feature.source === 'index' ? 'index' : 'tile'
       ].filter(Boolean).join(' - ');
       const detail = document.createElement('small');
       detail.textContent = feature.detail || '';
@@ -343,7 +343,7 @@ function renderInfo(payload, format) {
 
 async function inspectPoint(coord, options = {}) {
   setError('');
-  setStatus('Consultando datos cercanos...');
+  setStatus('Querying nearby data...');
   setMarker(coord);
   if (options.fly !== false) {
     state.map.flyTo({ center: [coord.lon, coord.lat], zoom: Math.max(state.map.getZoom(), 15), duration: 350 });
@@ -353,7 +353,7 @@ async function inspectPoint(coord, options = {}) {
   if (!response.ok) throw new Error(`Info no disponible: ${response.status}`);
   const payload = await response.json();
   renderInfo(payload, coord.format || 'Click mapa');
-  setStatus(`${payload.features.length} elemento${payload.features.length === 1 ? '' : 's'} cercano${payload.features.length === 1 ? '' : 's'}.`);
+  setStatus(`${payload.features.length} nearby element${payload.features.length === 1 ? '' : 's'}.`);
 }
 
 function wireEvents() {
@@ -383,7 +383,7 @@ async function main() {
     await loadSourceCatalog();
 
     const response = await fetch(tilejsonUrl(params, state.sourceId), { cache: 'no-store' });
-    if (!response.ok) throw new Error(`No se pudo leer TileJSON de "${state.sourceId}": ${response.status}`);
+    if (!response.ok) throw new Error(`Could not read TileJSON for "${state.sourceId}": ${response.status}`);
     const tilejson = normalizeTilejson(await response.json());
     const bounds = normalizeBounds(tilejson.bounds);
     const minZoom = tilejson.minzoom ?? 0;
@@ -399,8 +399,8 @@ async function main() {
     state.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     state.map.on('load', () => {
       if (bounds) fitToBoundsArray(state.map, bounds, 9, 24);
-      els.sourceSummary.textContent = `${state.sourceId} listo`;
-      setStatus('Clica un punto del mapa para consultar informacion cercana.');
+      els.sourceSummary.textContent = `${state.sourceId} ready`;
+      setStatus('Click a map point to inspect nearby information.');
     });
     state.map.on('click', event => {
       inspectPoint({ lat: event.lngLat.lat, lon: event.lngLat.lng, format: 'Click mapa' }, { fly: false })

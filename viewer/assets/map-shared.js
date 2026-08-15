@@ -4,9 +4,9 @@ export const DEFAULT_ZOOM = 7;
 
 export function normalizeBounds(value, name = 'bounds') {
   if (!value) return null;
-  if (!Array.isArray(value) || value.length !== 4) throw new Error(`"${name}" debe ser [oeste, sur, este, norte]`);
+  if (!Array.isArray(value) || value.length !== 4) throw new Error(`"${name}" must be [west, south, east, north]`);
   const bounds = value.map(Number);
-  if (!bounds.every(Number.isFinite)) throw new Error(`"${name}" contiene valores invalidos`);
+  if (!bounds.every(Number.isFinite)) throw new Error(`"${name}" contains invalid values`);
   return bounds;
 }
 
