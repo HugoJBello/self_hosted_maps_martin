@@ -109,8 +109,9 @@ Los perfiles estan definidos en `viewer/server.js` en `SEARCH_INDEX_PROFILES`.
 | `fast` | Indexado corto: poblaciones, carreteras principales, POIs basicos y nombres de agua. |
 | `streets` | Perfil por defecto: equilibrio entre tiempo y cobertura, incluyendo calles urbanas cerca de nucleos de poblacion. |
 | `detailed` | Mas cobertura de calles/POIs/numeros. Puede tardar mas y usar mas memoria en mapas grandes. |
+| `coverage` | Cobertura alta manual: mas tiles y mas capas con nombre (`park`, `mountain_peak`, `aerodrome_label`). Recomendado cuando se ven etiquetas en el mapa que no aparecen al buscar. |
 
-La busqueda normal intenta usar `profile` si se pasa en la URL, pero si ese perfil no tiene indice preparado reutiliza cualquier indice ya disponible para esa fuente, prefiriendo `streets` y despues el indice mas reciente. El selector de precision en Settings decide como se construye el indice, no debe bloquear la busqueda si el mapa ya tiene otro indice util. Si no hay ningun indice preparado para esa fuente, `/api/search` devuelve `409` con `code=INDEX_NOT_READY` y la UI muestra un enlace a Settings.
+La busqueda normal intenta usar `profile` si se pasa en la URL, pero si ese perfil no tiene indice preparado reutiliza cualquier indice ya disponible para esa fuente. La prioridad automatica favorece los indices con mas cobertura: `coverage`, `detailed`, `streets`, `fast`. El selector de precision en Settings decide como se construye el indice, no debe bloquear la busqueda si el mapa ya tiene otro indice util. Si no hay ningun indice preparado para esa fuente, `/api/search` devuelve `409` con `code=INDEX_NOT_READY` y la UI muestra un enlace a Settings.
 
 Settings muestra el estado de todos los perfiles de la fuente seleccionada y recuerda cual fue el ultimo indice construido en memoria. Esto ayuda a distinguir entre "este perfil concreto no esta indexado" y "el mapa si tiene un indice usable".
 

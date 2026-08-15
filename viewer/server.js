@@ -11,7 +11,7 @@ const maplibreRoot = path.join(root, 'node_modules', 'maplibre-gl', 'dist');
 const martinBaseInternal = (process.env.MARTIN_BASE_INTERNAL || 'http://martin:3000/mapas/tiles').replace(/\/$/, '');
 const sessionTtlSeconds = Number(process.env.MAP_SESSION_TTL_SECONDS || 3600);
 const sessionMaxBytes = process.env.MAP_SESSION_MAX_BYTES || '5mb';
-const searchMaxTiles = Number(process.env.MAP_SEARCH_MAX_TILES || 26000);
+const searchMaxTiles = Number(process.env.MAP_SEARCH_MAX_TILES || 80000);
 const searchMaxResults = Number(process.env.MAP_SEARCH_MAX_RESULTS || 500);
 const allowSearchAutoIndex = process.env.MAP_SEARCH_AUTO_INDEX === '1';
 const sessions = new Map();
@@ -28,6 +28,9 @@ const SEARCH_INDEX_PROFILES = {
       { layer: 'place', zoom: 8, maxTiles: 500 },
       { layer: 'transportation_name', zoom: 12, maxTiles: 3500 },
       { layer: 'poi', zoom: 12, maxTiles: 1500 },
+      { layer: 'park', zoom: 10, maxTiles: 500 },
+      { layer: 'mountain_peak', zoom: 10, maxTiles: 500 },
+      { layer: 'aerodrome_label', zoom: 10, maxTiles: 300 },
       { layer: 'water_name', zoom: 10, maxTiles: 600 }
     ]
   },
@@ -41,6 +44,9 @@ const SEARCH_INDEX_PROFILES = {
       { layer: 'transportation_name', zoom: 12, maxTiles: 12000 },
       { layer: 'transportation_name', zoom: 14, maxTiles: 12000, aroundPlaces: true },
       { layer: 'poi', zoom: 12, maxTiles: 2500 },
+      { layer: 'park', zoom: 11, maxTiles: 1200 },
+      { layer: 'mountain_peak', zoom: 11, maxTiles: 900 },
+      { layer: 'aerodrome_label', zoom: 11, maxTiles: 400 },
       { layer: 'water_name', zoom: 10, maxTiles: 800 },
       { layer: 'housenumber', zoom: 13, maxTiles: 1000 }
     ]
@@ -55,13 +61,34 @@ const SEARCH_INDEX_PROFILES = {
       { layer: 'transportation_name', zoom: 12, maxTiles: 18000 },
       { layer: 'transportation_name', zoom: 14, maxTiles: 26000, aroundPlaces: true },
       { layer: 'poi', zoom: 13, maxTiles: 4500 },
+      { layer: 'park', zoom: 12, maxTiles: 3500 },
+      { layer: 'mountain_peak', zoom: 12, maxTiles: 2500 },
+      { layer: 'aerodrome_label', zoom: 12, maxTiles: 1200 },
       { layer: 'water_name', zoom: 11, maxTiles: 1200 },
       { layer: 'housenumber', zoom: 14, maxTiles: 1500 }
+    ]
+  },
+  coverage: {
+    id: 'coverage',
+    label: 'High coverage',
+    description: 'Broader manual index for names visible across the map. Slower, but better when search misses visible labels.',
+    maxTiles: 80000,
+    layers: [
+      { layer: 'place', zoom: 8, maxTiles: 1200 },
+      { layer: 'place', zoom: 10, maxTiles: 8000 },
+      { layer: 'transportation_name', zoom: 12, maxTiles: 26000 },
+      { layer: 'transportation_name', zoom: 13, maxTiles: 22000 },
+      { layer: 'poi', zoom: 13, maxTiles: 8000 },
+      { layer: 'park', zoom: 12, maxTiles: 5000 },
+      { layer: 'mountain_peak', zoom: 12, maxTiles: 3500 },
+      { layer: 'aerodrome_label', zoom: 12, maxTiles: 1500 },
+      { layer: 'water_name', zoom: 11, maxTiles: 2000 },
+      { layer: 'housenumber', zoom: 14, maxTiles: 2500 }
     ]
   }
 };
 const DEFAULT_SEARCH_PROFILE = 'streets';
-const SEARCH_NAME_FIELDS = ['name:es', 'name', 'name:en', 'addr:street', 'addr:housenumber', 'ref'];
+const SEARCH_NAME_FIELDS = ['name:es', 'name', 'name:en', 'name_int', 'name:latin', 'name_de', 'name_en', 'addr:street', 'addr:housenumber', 'housenumber', 'ref', 'iata', 'icao'];
 const POINT_INFO_LAYERS = [
   'place',
   'transportation_name',
@@ -316,8 +343,10 @@ function indexKey(source, profileId = DEFAULT_SEARCH_PROFILE) {
 }
 
 function availableIndexForSource(source) {
-  const preferred = searchIndexes.get(indexKey(source, DEFAULT_SEARCH_PROFILE));
-  if (preferred?.items) return preferred;
+  for (const profileId of ['coverage', 'detailed', DEFAULT_SEARCH_PROFILE, 'fast']) {
+    const preferred = searchIndexes.get(indexKey(source, profileId));
+    if (preferred?.items) return preferred;
+  }
 
   const indexes = indexesForSource(source);
   if (indexes.length) return indexes[0];
