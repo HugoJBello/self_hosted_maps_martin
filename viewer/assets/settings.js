@@ -14,6 +14,7 @@ const els = {
   statIndexed: document.getElementById('statIndexed'),
   statTiles: document.getElementById('statTiles'),
   statBuiltAt: document.getElementById('statBuiltAt'),
+  profileStatusList: document.getElementById('profileStatusList'),
   profileDetails: document.getElementById('profileDetails')
 };
 
@@ -57,7 +58,7 @@ function routeUrl(pathname, includeProfile = false) {
 
 function updateNavLinks() {
   els.viewerRouteButton.href = routeUrl('./');
-  els.searchRouteButton.href = routeUrl('./search', true);
+  els.searchRouteButton.href = routeUrl('./search');
 }
 
 function formatDate(value) {
@@ -66,14 +67,50 @@ function formatDate(value) {
 }
 
 function renderStats(payload) {
-  const index = payload?.index;
+  const index = payload?.index || payload?.latestIndex;
   const job = payload?.job;
+  const selectedLabel = profileLabel(payload?.profile || selectedProfile());
+  const latestLabel = profileLabel(payload?.latestIndex?.profile);
   els.statSource.textContent = payload?.source || selectedSource();
-  els.statProfile.textContent = payload?.profile || selectedProfile();
+  els.statProfile.textContent = payload?.latestIndex
+    ? `${selectedLabel} · ultimo indice: ${latestLabel}`
+    : selectedLabel;
   els.statIndexed.textContent = String(job?.indexed ?? index?.indexed ?? 0);
   els.statTiles.textContent = String(job?.scannedTiles ?? index?.scannedTiles ?? 0);
   els.statBuiltAt.textContent = formatDate(index?.builtAt || job?.finishedAt);
   setProgress(job?.progress ?? (index ? 100 : 0));
+  renderProfileStatusList(payload);
+}
+
+function profileLabel(profileId) {
+  const profile = state.settings?.profiles?.find(item => item.id === profileId);
+  return profile?.label || profileId || '-';
+}
+
+function renderProfileStatusList(payload) {
+  els.profileStatusList.innerHTML = '';
+  const profiles = Array.isArray(payload?.profiles) ? payload.profiles : [];
+  for (const item of profiles) {
+    const row = document.createElement('div');
+    row.className = 'profile-status-row';
+
+    const name = document.createElement('span');
+    name.textContent = item.label || profileLabel(item.profile);
+
+    const stateText = document.createElement('strong');
+    if (item.job?.status === 'running' || item.job?.status === 'queued') {
+      stateText.textContent = `${item.job.progress || 0}%`;
+    } else if (item.index) {
+      stateText.textContent = `${item.index.indexed} elem · ${item.index.scannedTiles} tiles`;
+    } else if (item.job?.status === 'error') {
+      stateText.textContent = 'error';
+    } else {
+      stateText.textContent = 'sin indice';
+    }
+
+    row.append(name, stateText);
+    els.profileStatusList.appendChild(row);
+  }
 }
 
 function renderProfileDetails() {
@@ -134,8 +171,10 @@ async function refreshStatus() {
 
   if (payload.index) {
     setAlert('success', `Indice listo: ${payload.index.indexed} elementos indexados.`);
+  } else if (payload.latestIndex) {
+    setAlert('success', `Hay indice listo en ${profileLabel(payload.latestIndex.profile)}: ${payload.latestIndex.indexed} elementos. La busqueda lo reutilizara aunque cambies la precision aqui.`);
   } else {
-    setAlert('info', 'Este mapa y perfil aun no tienen indice en memoria.');
+    setAlert('info', 'Este mapa aun no tiene ningun indice en memoria.');
   }
 }
 

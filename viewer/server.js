@@ -306,12 +306,34 @@ function availableIndexForSource(source) {
   const preferred = searchIndexes.get(indexKey(source, DEFAULT_SEARCH_PROFILE));
   if (preferred?.items) return preferred;
 
-  for (const profile of Object.values(SEARCH_INDEX_PROFILES)) {
-    const index = searchIndexes.get(indexKey(source, profile.id));
-    if (index?.items) return index;
-  }
+  const indexes = indexesForSource(source);
+  if (indexes.length) return indexes[0];
 
   return null;
+}
+
+function indexesForSource(source) {
+  return Object.values(SEARCH_INDEX_PROFILES)
+    .map(profile => searchIndexes.get(indexKey(source, profile.id)))
+    .filter(index => index?.items)
+    .sort((a, b) => b.builtAt - a.builtAt);
+}
+
+function latestIndexForSource(source) {
+  return indexesForSource(source)[0] || null;
+}
+
+function profileStatusesForSource(source) {
+  return Object.values(SEARCH_INDEX_PROFILES).map(profile => {
+    const key = indexKey(source, profile.id);
+    const index = searchIndexes.get(indexKey(source, profile.id));
+    return {
+      profile: profile.id,
+      label: profile.label,
+      index: publicIndex(index),
+      job: jobSnapshot(searchJobs.get(key))
+    };
+  });
 }
 
 function publicIndex(index) {
@@ -623,7 +645,9 @@ async function sendSearchResults(req, res, next) {
     const hasExplicitProfile = typeof req.query.profile === 'string' && req.query.profile.trim();
     const profile = profileFor(req.query.profile);
     const key = indexKey(source, profile.id);
-    const cached = hasExplicitProfile ? searchIndexes.get(key) : availableIndexForSource(source);
+    const cached = hasExplicitProfile
+      ? searchIndexes.get(key) || availableIndexForSource(source)
+      : availableIndexForSource(source);
     const autoIndex = allowSearchAutoIndex || req.query.autoIndex === '1';
 
     if (!cached?.items && !cached?.promise && !autoIndex) {
@@ -632,9 +656,7 @@ async function sendSearchResults(req, res, next) {
         code: 'INDEX_NOT_READY',
         source,
         profile: profile.id,
-        availableProfiles: Object.values(SEARCH_INDEX_PROFILES)
-          .map(item => item.id)
-          .filter(profileId => searchIndexes.get(indexKey(source, profileId))?.items),
+        availableProfiles: indexesForSource(source).map(index => index.profile),
         settingsUrl: `/maps/settings?source=${encodeURIComponent(source)}`
       });
       return;
@@ -652,6 +674,7 @@ async function sendSearchResults(req, res, next) {
     res.json({
       source,
       profile: index.profile,
+      requestedProfile: hasExplicitProfile ? profile.id : null,
       query: req.query.q,
       indexed: index.items.length,
       scannedTiles: index.scannedTiles,
@@ -694,13 +717,17 @@ function sendSearchIndexStatus(req, res) {
     : 'castilla_y_leon';
   const profile = profileFor(req.query.profile);
   const key = indexKey(source, profile.id);
+  const latestIndex = latestIndexForSource(source);
 
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     source,
     profile: profile.id,
     index: publicIndex(searchIndexes.get(key)),
-    job: jobSnapshot(searchJobs.get(key))
+    job: jobSnapshot(searchJobs.get(key)),
+    latestIndex: publicIndex(latestIndex),
+    availableProfiles: indexesForSource(source).map(index => index.profile),
+    profiles: profileStatusesForSource(source)
   });
 }
 

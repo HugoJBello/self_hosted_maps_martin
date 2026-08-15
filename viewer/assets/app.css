@@ -733,6 +733,33 @@ body.settings-page {
   font-weight: 800;
 }
 
+.profile-status-list {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #34413d;
+  font-size: 13px;
+}
+
+.profile-status-row span {
+  overflow-wrap: anywhere;
+}
+
+.profile-status-row strong {
+  color: var(--accent-strong);
+  font-size: 12px;
+  text-align: right;
+}
+
 .profile-details {
   display: grid;
   gap: 10px;

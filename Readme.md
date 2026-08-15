@@ -93,7 +93,9 @@ Los perfiles estan definidos en `viewer/server.js` en `SEARCH_INDEX_PROFILES`.
 | `streets` | Perfil por defecto: equilibrio entre tiempo y cobertura, incluyendo calles urbanas cerca de nucleos de poblacion. |
 | `detailed` | Mas cobertura de calles/POIs/numeros. Puede tardar mas y usar mas memoria en mapas grandes. |
 
-La busqueda normal usa `profile` si se pasa en la URL. Si no se pasa `profile`, reutiliza cualquier indice ya preparado para esa fuente, prefiriendo `streets`. Si no hay ningun indice preparado para esa fuente, `/api/search` devuelve `409` con `code=INDEX_NOT_READY` y la UI muestra un enlace a Settings.
+La busqueda normal intenta usar `profile` si se pasa en la URL, pero si ese perfil no tiene indice preparado reutiliza cualquier indice ya disponible para esa fuente, prefiriendo `streets` y despues el indice mas reciente. El selector de precision en Settings decide como se construye el indice, no debe bloquear la busqueda si el mapa ya tiene otro indice util. Si no hay ningun indice preparado para esa fuente, `/api/search` devuelve `409` con `code=INDEX_NOT_READY` y la UI muestra un enlace a Settings.
+
+Settings muestra el estado de todos los perfiles de la fuente seleccionada y recuerda cual fue el ultimo indice construido en memoria. Esto ayuda a distinguir entre "este perfil concreto no esta indexado" y "el mapa si tiene un indice usable".
 
 Existe una valvula explicita para desarrollo: `MAP_SEARCH_AUTO_INDEX=1` permite que `/api/search` construya el indice al vuelo. Por defecto esta desactivada y no debe activarse en mapas enormes salvo que se acepte ese coste.
 
@@ -103,7 +105,7 @@ Existe una valvula explicita para desarrollo: `MAP_SEARCH_AUTO_INDEX=1` permite 
 | --- | --- | --- |
 | `GET` | `/maps/api/search?q={texto}&source={source}&profile={profile}&limit={n}` | Busca en un indice ya preparado. Devuelve `409 INDEX_NOT_READY` si no existe. |
 | `GET` | `/maps/api/search/settings` | Devuelve fuentes disponibles y perfiles de indexado. |
-| `GET` | `/maps/api/search/index?source={source}&profile={profile}` | Estado del indice y del ultimo job para ese mapa/perfil. |
+| `GET` | `/maps/api/search/index?source={source}&profile={profile}` | Estado del perfil seleccionado, ultimo indice disponible y resumen de todos los perfiles de esa fuente. |
 | `POST` | `/maps/api/search/index` | Lanza indexado o reindexado manual. Body JSON: `source`, `profile`, `force`. |
 
 Ejemplo de indexado manual por API:
