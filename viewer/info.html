@@ -43,8 +43,15 @@
     </section>
 
     <section class="info-panel" aria-label="Consulta de coordenadas">
-      <div class="info-panel-actions">
-        <button id="openCoordDialogButton" class="primary-action" type="button">Introducir coordenada</button>
+      <div class="info-panel-header">
+        <div>
+          <div class="section-title">Punto del mapa</div>
+          <p>Click directo o coordenada manual</p>
+        </div>
+        <button id="openCoordDialogButton" class="coord-open-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+          <span>Coordenada</span>
+        </button>
       </div>
 
       <div id="infoStatus" class="status-box" role="status">Clica un punto del mapa para consultar informacion cercana.</div>
