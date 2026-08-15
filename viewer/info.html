@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Info de coordenadas - Martin Maps Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260604-info" />
+</head>
+<body class="info-page">
+  <main class="info-shell">
+    <section class="info-map-stage" aria-label="Mapa de informacion">
+      <div id="map" class="map-canvas"></div>
+
+      <div class="topbar info-topbar">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Info de coordenadas</h1>
+            <p id="sourceSummary">Preparando mapa local</p>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <label class="source-picker" for="sourceSelect">
+            <span>Mapa</span>
+            <select id="sourceSelect" aria-label="Seleccionar mapa">
+              <option value="">Cargando mapas</option>
+            </select>
+          </label>
+          <a id="viewerRouteButton" class="icon-button" href="./" title="Volver al visor" aria-label="Volver al visor">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h12"/></svg>
+          </a>
+          <a id="searchRouteButton" class="icon-button" href="./search" title="Buscar" aria-label="Buscar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/></svg>
+          </a>
+          <a id="settingsRouteButton" class="icon-button" href="./settings" title="Configuracion" aria-label="Configuracion">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.05a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.05a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.25.6.83 1 1.55 1H21a2 2 0 1 1 0 4h-.05a1.7 1.7 0 0 0-1.55 1z"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-panel" aria-label="Consulta de coordenadas">
+      <div class="mode-tabs" role="tablist" aria-label="Modo de consulta">
+        <button id="clickModeButton" type="button" class="is-active">Clicar mapa</button>
+        <button id="coordModeButton" type="button">Pegar coordenada</button>
+      </div>
+
+      <form id="coordForm" class="coord-form">
+        <label for="coordInput">Coordenada</label>
+        <div class="coord-input-row">
+          <input id="coordInput" type="text" autocomplete="off" spellcheck="false" placeholder="41.6521, -4.7286 - N 41 39 07 W 4 43 42 - 30T 356000 4612000" />
+          <button type="submit">Ir</button>
+        </div>
+        <div class="coord-pair-row">
+          <input id="latInput" type="text" inputmode="decimal" placeholder="Latitud" aria-label="Latitud" />
+          <input id="lonInput" type="text" inputmode="decimal" placeholder="Longitud" aria-label="Longitud" />
+        </div>
+      </form>
+
+      <div id="infoStatus" class="status-box" role="status">Clica un punto del mapa o introduce coordenadas para consultar informacion cercana.</div>
+      <div id="infoError" class="error-box" role="alert" hidden></div>
+      <article id="infoCard" class="point-info-card" aria-live="polite">
+        <div class="empty-state">Sin punto seleccionado.</div>
+      </article>
+    </section>
+  </main>
+
+  <script src="./vendor/maplibre-gl/maplibre-gl.js"></script>
+  <script type="module" src="./assets/info.js?v=20260604-info"></script>
+</body>
+</html>

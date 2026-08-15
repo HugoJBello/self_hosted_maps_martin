@@ -3,6 +3,7 @@ import { DEFAULT_SOURCE } from './map-shared.js';
 const els = {
   viewerRouteButton: document.getElementById('viewerRouteButton'),
   searchRouteButton: document.getElementById('searchRouteButton'),
+  infoRouteButton: document.getElementById('infoRouteButton'),
   sourceSelect: document.getElementById('sourceSelect'),
   profileSelect: document.getElementById('profileSelect'),
   forceToggle: document.getElementById('forceToggle'),
@@ -59,6 +60,7 @@ function routeUrl(pathname, includeProfile = false) {
 function updateNavLinks() {
   els.viewerRouteButton.href = routeUrl('./');
   els.searchRouteButton.href = routeUrl('./search');
+  els.infoRouteButton.href = routeUrl('./info');
 }
 
 function formatDate(value) {

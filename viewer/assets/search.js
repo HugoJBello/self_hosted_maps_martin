@@ -37,6 +37,7 @@ const els = {
   sourceSummary: document.getElementById('sourceSummary'),
   sourceSelect: document.getElementById('sourceSelect'),
   viewerRouteButton: document.getElementById('viewerRouteButton'),
+  infoRouteButton: document.getElementById('infoRouteButton'),
   settingsRouteButton: document.getElementById('settingsRouteButton'),
   searchForm: document.getElementById('searchForm'),
   searchInput: document.getElementById('searchInput'),
@@ -83,6 +84,7 @@ function routeUrl(pathname, sourceId) {
 
 function updateRouteLinks() {
   els.viewerRouteButton.href = routeUrl('./', state.sourceId);
+  els.infoRouteButton.href = routeUrl('./info', state.sourceId);
   els.settingsRouteButton.href = routeUrl('./settings', state.sourceId);
 }
 

@@ -385,11 +385,13 @@ label {
 }
 
 body.search-page,
+body.info-page,
 body.settings-page {
   overflow: hidden;
 }
 
-.search-shell {
+.search-shell,
+.info-shell {
   width: 100%;
   height: 100vh;
   display: grid;
@@ -397,7 +399,8 @@ body.settings-page {
   background: var(--bg);
 }
 
-.search-map-stage {
+.search-map-stage,
+.info-map-stage {
   position: relative;
   min-height: 320px;
   border-bottom: 1px solid var(--line);
@@ -411,6 +414,155 @@ body.settings-page {
   padding: 14px 16px 16px;
   overflow: hidden;
   background: var(--surface-solid);
+}
+
+.info-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px 16px 16px;
+  overflow: hidden;
+  background: var(--surface-solid);
+}
+
+.mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mode-tabs button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.mode-tabs button.is-active {
+  border-color: rgba(18, 108, 92, 0.4);
+  background: rgba(18, 108, 92, 0.1);
+  color: var(--accent-strong);
+}
+
+.coord-form {
+  display: grid;
+  gap: 8px;
+}
+
+.coord-input-row,
+.coord-pair-row {
+  display: grid;
+  gap: 8px;
+}
+
+.coord-input-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.coord-pair-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.coord-form input {
+  min-width: 0;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--text);
+}
+
+.coord-input-row button {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 0 18px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+}
+
+.point-info-card {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.empty-state {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.point-info-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.point-info-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.point-info-grid div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.point-info-grid dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.point-info-grid dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+}
+
+.nearby-list {
+  display: grid;
+  gap: 8px;
+}
+
+.nearby-item {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.nearby-item strong,
+.nearby-item span,
+.nearby-item small {
+  overflow-wrap: anywhere;
+}
+
+.nearby-item span {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.nearby-item small {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .search-form {
@@ -813,25 +965,29 @@ body.settings-page {
     width: 100%;
   }
 
-  .search-shell {
+  .search-shell,
+  .info-shell {
     grid-template-rows: minmax(320px, 45vh) minmax(0, 1fr);
   }
 
-  .search-map-stage {
+  .search-map-stage,
+  .info-map-stage {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
     overflow: hidden;
   }
 
-  .search-map-stage .map-canvas {
+  .search-map-stage .map-canvas,
+  .info-map-stage .map-canvas {
     position: relative;
     inset: auto;
     grid-row: 2;
     min-height: 0;
   }
 
-  .search-topbar {
+  .search-topbar,
+  .info-topbar {
     position: relative;
     inset: auto;
     grid-row: 1;
@@ -847,15 +1003,18 @@ body.settings-page {
     z-index: 2;
   }
 
-  .search-topbar .brand-block {
+  .search-topbar .brand-block,
+  .info-topbar .brand-block {
     width: 100%;
   }
 
-  .search-topbar p {
+  .search-topbar p,
+  .info-topbar p {
     margin-top: 1px;
   }
 
-  .search-panel {
+  .search-panel,
+  .info-panel {
     gap: 8px;
     padding: 10px;
   }
@@ -930,6 +1089,27 @@ body.settings-page {
   .result-detail,
   .result-meta {
     font-size: 11px;
+  }
+
+  .coord-input-row {
+    grid-template-columns: minmax(0, 1fr) minmax(56px, auto);
+  }
+
+  .coord-pair-row,
+  .point-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coord-form input,
+  .coord-input-row button,
+  .mode-tabs button {
+    min-height: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .point-info-card {
+    padding: 10px;
   }
 
   .settings-shell {

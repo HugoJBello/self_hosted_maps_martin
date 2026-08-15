@@ -20,6 +20,7 @@ const els = {
   sourcePanel: document.getElementById('sourcePanel'),
   sourcePanelButton: document.getElementById('sourcePanelButton'),
   searchRouteButton: document.getElementById('searchRouteButton'),
+  infoRouteButton: document.getElementById('infoRouteButton'),
   settingsRouteButton: document.getElementById('settingsRouteButton'),
   controlPanel: document.getElementById('controlPanel'),
   status: document.getElementById('status'),
@@ -726,6 +727,12 @@ function settingsUrl(sourceId) {
   return url.toString();
 }
 
+function infoUrl(sourceId) {
+  const url = new URL('./info', window.location.href);
+  url.searchParams.set('source', sourceId || DEFAULT_SOURCE);
+  return url.toString();
+}
+
 async function loadSourceCatalog(currentSource) {
   if (!els.sourceSelect) return;
 
@@ -773,6 +780,7 @@ function prepareControls(params, activeSource = DEFAULT_SOURCE) {
   const sourceId = activeSource || params.get('source') || DEFAULT_SOURCE;
   els.sourceInput.value = sourceId;
   if (els.searchRouteButton) els.searchRouteButton.href = searchUrl(sourceId);
+  if (els.infoRouteButton) els.infoRouteButton.href = infoUrl(sourceId);
   if (els.settingsRouteButton) els.settingsRouteButton.href = settingsUrl(sourceId);
   loadSourceCatalog(sourceId);
   els.sourceSelect.addEventListener('change', () => navigateToSource(els.sourceSelect.value));

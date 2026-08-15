@@ -56,6 +56,7 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 | `/` | UI principal. |
 | `/maps/` | Alias compatible con despliegues que publican el visor bajo `/maps/`. |
 | `/search` y `/maps/search` | Pantalla de busqueda por texto sobre el mapa activo. Usa un indice offline local preparado desde Settings. |
+| `/info` y `/maps/info` | Pantalla para consultar coordenadas y datos cercanos clicando el mapa o pegando coordenadas. |
 | `/settings` y `/maps/settings` | Configuracion del visor e indexado manual de busqueda por mapa/perfil. |
 | `/healthz` | Healthcheck JSON del visor. |
 | `/api/catalog` y `/maps/api/catalog` | Proxy interno del catalogo Martin usado por el selector de mapas. |
@@ -78,6 +79,22 @@ El flujo esperado es:
 5. Volver a `/maps/search?source={source}` y buscar.
 
 En `/search`, el usuario puede elegir el maximo de resultados que solicita al indice, navegar la lista paginada y pulsar `Mostrar en mapa` para pintar los resultados devueltos como puntos. Al clicar un resultado de la lista o un punto del mapa, el visor centra el lugar y abre un popup con titulo, capa, tipo y coordenadas.
+
+## Info de Coordenadas
+
+La pantalla `/info` permite seleccionar un punto de dos formas:
+
+1. Modo `Clicar mapa`: el usuario clica sobre el mapa y se marca el punto.
+2. Modo `Pegar coordenada`: el usuario introduce coordenadas y la UI vuela al punto marcado.
+
+La coordenada se normaliza a WGS84 (`lat`, `lon`) y se consulta `/maps/api/point-info`. El panel muestra latitud, longitud, formato detectado, radio de consulta, indice reutilizado si existe y una lista de datos cercanos. La consulta combina datos presentes en los tiles vectoriales cercanos con el indice offline disponible del mapa, si lo hay.
+
+Formatos soportados en la UI:
+
+- Decimal: `41.6521, -4.7286`.
+- Grados/minutos/segundos con hemisferio: `N 41 39 07 W 4 43 42`.
+- UTM basico: `30T 356000 4612000`.
+- Web Mercator/EPSG:3857: `x y`.
 
 Los indices se guardan en memoria dentro de `map-viewer`. Si el contenedor se reinicia, se pierden. Para produccion con mapas muy grandes o multiples replicas, el siguiente paso natural es persistirlos en SQLite/Redis/disco manteniendo los mismos endpoints.
 
@@ -107,6 +124,7 @@ Existe una valvula explicita para desarrollo: `MAP_SEARCH_AUTO_INDEX=1` permite 
 | `GET` | `/maps/api/search/settings` | Devuelve fuentes disponibles y perfiles de indexado. |
 | `GET` | `/maps/api/search/index?source={source}&profile={profile}` | Estado del perfil seleccionado, ultimo indice disponible y resumen de todos los perfiles de esa fuente. |
 | `POST` | `/maps/api/search/index` | Lanza indexado o reindexado manual. Body JSON: `source`, `profile`, `force`. |
+| `GET` | `/maps/api/point-info?source={source}&lat={lat}&lon={lon}&radius={m}` | Devuelve coordenadas normalizadas y datos cercanos desde tiles vectoriales e indice offline disponible. |
 
 Ejemplo de indexado manual por API:
 

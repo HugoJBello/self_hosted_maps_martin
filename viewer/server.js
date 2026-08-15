@@ -62,6 +62,19 @@ const SEARCH_INDEX_PROFILES = {
 };
 const DEFAULT_SEARCH_PROFILE = 'streets';
 const SEARCH_NAME_FIELDS = ['name:es', 'name', 'name:en', 'addr:street', 'addr:housenumber', 'ref'];
+const POINT_INFO_LAYERS = [
+  'place',
+  'transportation_name',
+  'poi',
+  'housenumber',
+  'building',
+  'transportation',
+  'water_name',
+  'waterway',
+  'water',
+  'landuse',
+  'park'
+];
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: sessionMaxBytes }));
@@ -387,6 +400,18 @@ function tilePointToLonLat(tile, point, extent) {
   return [lon, lat];
 }
 
+function haversineMeters(a, b) {
+  const radius = 6371008.8;
+  const lat1 = a[1] * Math.PI / 180;
+  const lat2 = b[1] * Math.PI / 180;
+  const dLat = (b[1] - a[1]) * Math.PI / 180;
+  const dLon = (b[0] - a[0]) * Math.PI / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return 2 * radius * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 function clampTile(value, z) {
   return Math.max(0, Math.min(2 ** z - 1, value));
 }
@@ -467,6 +492,23 @@ function featureCenter(feature, tile) {
   return averageCoordinate(coords);
 }
 
+function featureClosestCoordinate(feature, tile, point) {
+  const geometry = feature.loadGeometry();
+  let closest = null;
+  let closestDistance = Infinity;
+  for (const line of geometry) {
+    for (const tilePoint of line) {
+      const coord = tilePointToLonLat(tile, tilePoint, feature.extent || 4096);
+      const distance = haversineMeters(point, coord);
+      if (distance < closestDistance) {
+        closest = coord;
+        closestDistance = distance;
+      }
+    }
+  }
+  return closest;
+}
+
 function searchTitle(properties) {
   for (const field of SEARCH_NAME_FIELDS) {
     if (properties[field]) return String(properties[field]);
@@ -526,6 +568,85 @@ function addSearchFeatures(items, seen, tileBuffer, tile, layerName) {
       rank: properties.rank
     });
   }
+}
+
+function pointInfoTitle(properties) {
+  return searchTitle(properties) || properties.class || properties.type || properties.kind || '';
+}
+
+function publicProperties(properties) {
+  const allowed = [
+    'name:es',
+    'name',
+    'name:en',
+    'addr:street',
+    'addr:housenumber',
+    'ref',
+    'class',
+    'type',
+    'rank'
+  ];
+  const out = {};
+  for (const key of allowed) {
+    if (properties[key] !== undefined && properties[key] !== null && String(properties[key]).trim()) {
+      out[key] = properties[key];
+    }
+  }
+  return out;
+}
+
+function addPointInfoFeatures(out, seen, tileBuffer, tile, point, radiusMeters) {
+  const vectorTile = new VectorTile(new Protobuf(tileBuffer));
+  for (const layerName of POINT_INFO_LAYERS) {
+    const layer = vectorTile.layers[layerName];
+    if (!layer) continue;
+
+    for (let i = 0; i < layer.length; i += 1) {
+      const feature = layer.feature(i);
+      const properties = feature.properties || {};
+      const center = featureClosestCoordinate(feature, tile, point) || featureCenter(feature, tile);
+      if (!center) continue;
+      const distanceMeters = haversineMeters(point, center);
+      if (distanceMeters > radiusMeters) continue;
+
+      const key = `${layerName}:${pointInfoTitle(properties)}:${center.map(value => value.toFixed(5)).join(',')}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        source: 'tile',
+        layer: layerName,
+        title: pointInfoTitle(properties) || layerName,
+        detail: searchDetail(properties, layerName),
+        className: properties.class || '',
+        type: properties.type || '',
+        ref: properties.ref || '',
+        center,
+        distanceMeters: Math.round(distanceMeters),
+        properties: publicProperties(properties)
+      });
+    }
+  }
+}
+
+function indexedPointInfo(source, point, radiusMeters) {
+  const index = availableIndexForSource(source);
+  if (!index?.items) return [];
+  return index.items
+    .map(item => ({
+      source: 'index',
+      layer: item.layer,
+      title: item.title,
+      detail: item.detail,
+      className: item.className || '',
+      type: '',
+      ref: '',
+      center: item.center,
+      distanceMeters: Math.round(haversineMeters(point, item.center)),
+      properties: {}
+    }))
+    .filter(item => item.distanceMeters <= radiusMeters)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 8);
 }
 
 async function readTilejson(source) {
@@ -685,6 +806,54 @@ async function sendSearchResults(req, res, next) {
   }
 }
 
+async function sendPointInfo(req, res, next) {
+  const source = typeof req.query.source === 'string' && req.query.source.trim()
+    ? req.query.source.trim()
+    : 'castilla_y_leon';
+  const lon = Number(req.query.lon ?? req.query.lng);
+  const lat = Number(req.query.lat);
+  const radiusMeters = Math.min(1500, Math.max(25, Number(req.query.radius || 250)));
+
+  if (!/^[a-zA-Z0-9_.-]+$/.test(source)) {
+    res.status(400).json({ error: 'Invalid source id' });
+    return;
+  }
+
+  if (!Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+    res.status(400).json({ error: 'Invalid coordinates' });
+    return;
+  }
+
+  try {
+    const point = [lon, lat];
+    const seen = new Set();
+    const features = [...indexedPointInfo(source, point, radiusMeters)];
+    const z = 14;
+    const x = clampTile(tileX(lon, z), z);
+    const y = clampTile(tileY(lat, z), z);
+
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const tile = { z, x: clampTile(x + dx, z), y: clampTile(y + dy, z) };
+        const tileBuffer = await readTile(source, tile);
+        if (tileBuffer) addPointInfoFeatures(features, seen, tileBuffer, tile, point, radiusMeters);
+      }
+    }
+
+    features.sort((a, b) => a.distanceMeters - b.distanceMeters);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      source,
+      coord: { lat, lon },
+      radiusMeters,
+      indexProfile: availableIndexForSource(source)?.profile || null,
+      features: features.slice(0, 20)
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function sendSearchSettings(req, res, next) {
   try {
     const upstream = await fetch(`${martinBaseInternal}/catalog`, {
@@ -791,6 +960,8 @@ app.get('/api/search/index', sendSearchIndexStatus);
 app.get('/maps/api/search/index', sendSearchIndexStatus);
 app.post('/api/search/index', startSearchIndex);
 app.post('/maps/api/search/index', startSearchIndex);
+app.get('/api/point-info', sendPointInfo);
+app.get('/maps/api/point-info', sendPointInfo);
 app.post('/api/session', createSession);
 app.post('/maps/api/session', createSession);
 app.patch('/api/session/:id', updateSession);
@@ -815,12 +986,18 @@ function sendSettings(req, res) {
   res.sendFile(path.join(root, 'settings.html'));
 }
 
+function sendInfo(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(root, 'info.html'));
+}
+
 app.use('/vendor/maplibre-gl', express.static(maplibreRoot, { immutable: true, maxAge: '1y' }));
 app.use('/maps/vendor/maplibre-gl', express.static(maplibreRoot, { immutable: true, maxAge: '1y' }));
 
 app.get(['/', '/index.html', '/maps', '/maps/', '/maps/index.html'], sendIndex);
 app.get(['/search', '/search.html', '/maps/search', '/maps/search.html'], sendSearch);
 app.get(['/settings', '/settings.html', '/maps/settings', '/maps/settings.html'], sendSettings);
+app.get(['/info', '/info.html', '/maps/info', '/maps/info.html'], sendInfo);
 
 app.use('/assets', express.static(path.join(root, 'assets'), {
   etag: false,
