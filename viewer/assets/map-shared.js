@@ -1,6 +1,34 @@
 export const DEFAULT_SOURCE = 'castilla_y_leon';
 export const DEFAULT_CENTER = [-4.423285, 41.6606935];
 export const DEFAULT_ZOOM = 7;
+export const USER_LOCATION_ZOOM = 13;
+
+export function isDirectMapView(params = new URLSearchParams(window.location.search)) {
+  const compact = params.get('chrome') === '0' || params.get('embed') === '1';
+  return window.self === window.top && !compact;
+}
+
+export function requestUserLocation(params, options = {}) {
+  if (!isDirectMapView(params) || !navigator.geolocation) return Promise.resolve(null);
+
+  return new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      position => resolve([position.coords.longitude, position.coords.latitude]),
+      () => resolve(null),
+      {
+        enableHighAccuracy: false,
+        maximumAge: options.maximumAge ?? 300000,
+        timeout: options.timeout ?? 10000
+      }
+    );
+  });
+}
+
+export function centerOnUserLocation(map, location, zoom = USER_LOCATION_ZOOM) {
+  if (!map || !location) return false;
+  map.easeTo({ center: location, zoom: Math.min(zoom, map.getMaxZoom()), duration: 500 });
+  return true;
+}
 
 export function normalizeBounds(value, name = 'bounds') {
   if (!value) return null;

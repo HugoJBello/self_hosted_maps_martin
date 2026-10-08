@@ -3,10 +3,12 @@ import {
   DEFAULT_SOURCE,
   DEFAULT_ZOOM,
   catalogUrl,
+  centerOnUserLocation,
   fitToBoundsArray,
   fitToCoords,
   mapStyle,
   normalizeTilejson,
+  requestUserLocation,
   tilejsonUrl
 } from './map-shared.js';
 
@@ -549,6 +551,7 @@ async function main() {
     map.on('load', () => {
       fitToBoundsArray(map, bounds, 9);
       map.setMaxBounds(new maplibregl.LngLatBounds([bounds[0], bounds[1]], [bounds[2], bounds[3]]));
+      requestUserLocation(params).then(location => centerOnUserLocation(map, location));
       map.addSource('search-selection-src', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }

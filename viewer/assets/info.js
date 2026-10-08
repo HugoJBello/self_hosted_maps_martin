@@ -3,10 +3,12 @@ import {
   DEFAULT_SOURCE,
   DEFAULT_ZOOM,
   catalogUrl,
+  centerOnUserLocation,
   fitToBoundsArray,
   mapStyle,
   normalizeBounds,
   normalizeTilejson,
+  requestUserLocation,
   tilejsonUrl
 } from './map-shared.js';
 
@@ -399,6 +401,7 @@ async function main() {
     state.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     state.map.on('load', () => {
       if (bounds) fitToBoundsArray(state.map, bounds, 9, 24);
+      requestUserLocation(params).then(location => centerOnUserLocation(state.map, location));
       els.sourceSummary.textContent = `${state.sourceId} ready`;
       setStatus('Click a map point to inspect nearby information.');
     });

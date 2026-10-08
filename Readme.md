@@ -47,6 +47,7 @@ El servicio `map-viewer` ya no es nginx estatico. Ahora es una aplicacion Expres
 - Mantiene los query params antiguos: `source`, `points`, `labels`, `icons`, `route`, `polygon`, `markers` y `overlay`.
 - Añade selector de mapas disponibles desde el catalogo Martin, campo manual avanzado, centrado, visibilidad de capas, estado de carga y copia de iframe.
 - Permite modo compacto para embeds con `embed=1` o `chrome=0`.
+- En las vistas directas principal, de busqueda y de coordenadas solicita la ubicacion del navegador y centra el mapa en ella cuando esta disponible. Nunca solicita ubicacion dentro de un iframe ni en modo embed/compacto; los datos y encuadres explicitos conservan prioridad.
 - No envia `X-Frame-Options`, y define `frame-ancestors *` para permitir uso dentro de iframes. Restringir ese valor en produccion si se quiere limitar que dominios pueden embeber el visor.
 
 ### Rutas del Visor

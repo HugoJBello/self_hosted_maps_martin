@@ -3,11 +3,13 @@ import {
   DEFAULT_SOURCE,
   DEFAULT_ZOOM,
   catalogUrl,
+  centerOnUserLocation,
   fitToBoundsArray,
   fitToCoords,
   mapStyle,
   normalizeBounds,
   normalizeTilejson,
+  requestUserLocation,
   tilejsonUrl
 } from './map-shared.js';
 
@@ -1015,6 +1017,9 @@ async function main() {
       state.contentCoords = allCoords;
       if (allCoords.length) fitToCoords(map, allCoords, 13);
       else if (routeBounds || markerBounds) fitToBoundsArray(map, routeBounds || markerBounds, 13);
+      else if (!markerData && !routeData && !areaData && polygon.length < 3) {
+        requestUserLocation(params).then(location => centerOnUserLocation(map, location));
+      }
       setStatus(`Map ready. Source ${sourceId}`);
     });
 
