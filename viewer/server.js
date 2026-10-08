@@ -109,7 +109,7 @@ app.use(express.json({ limit: sessionMaxBytes }));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=(), camera=()');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self'",
